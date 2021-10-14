@@ -29,6 +29,8 @@
 #ifndef hectordebuginfointerface_h__
 #define hectordebuginfointerface_h__
 
+#include <Eigen/Core>
+
 class HectorDebugInfoInterface{
 public:
 
