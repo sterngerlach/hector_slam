@@ -30,7 +30,9 @@
 #define utilfunctions_h__
 
 #include <cmath>
-#include <tf/LinearMath/Transform.h>
+
+#include <geometry_msgs/Quaternion.h>
+#include <tf/transform_datatypes.h>
 
 namespace util{
 
