@@ -30,6 +30,7 @@
 #define __DataPointContainer_h_
 
 #include <vector>
+#include <Eigen/Core>
 
 namespace hectorslam {
 
