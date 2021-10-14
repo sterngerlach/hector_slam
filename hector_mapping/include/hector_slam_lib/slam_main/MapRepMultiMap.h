@@ -29,6 +29,8 @@
 #ifndef _hectormaprepmultimap_h__
 #define _hectormaprepmultimap_h__
 
+#include <memory>
+
 #include "MapRepresentationInterface.h"
 #include "MapProcContainer.h"
 
@@ -56,13 +58,17 @@ public:
     float totalMapSizeY = mapResolution * static_cast<float>(mapSizeY);
     float mid_offset_y = totalMapSizeY * startCoords.y();
 
+    auto scanMatcher = std::make_shared<ScanMatcher<OccGridMapUtilConfig<GridMap>>>(
+      drawInterfaceIn, debugInterfaceIn);
+
     for (unsigned int i = 0; i < numDepth; ++i){
       std::cout << "HectorSM map lvl " << i << ": cellLength: " << mapResolution << " res x:" << resolution.x() << " res y: " << resolution.y() << "\n";
-      GridMap* gridMap = new hectorslam::GridMap(mapResolution,resolution, Eigen::Vector2f(mid_offset_x, mid_offset_y));
-      OccGridMapUtilConfig<GridMap>* gridMapUtil = new OccGridMapUtilConfig<GridMap>(gridMap);
-      ScanMatcher<OccGridMapUtilConfig<GridMap> >* scanMatcher = new hectorslam::ScanMatcher<OccGridMapUtilConfig<GridMap> >(drawInterfaceIn, debugInterfaceIn);
-
-      mapContainer.push_back(MapProcContainer(gridMap, gridMapUtil, scanMatcher));
+      auto gridMap = std::make_unique<GridMap>(
+        mapResolution, resolution, Eigen::Vector2f(mid_offset_x, mid_offset_y));
+      auto gridMapUtil = std::make_unique<OccGridMapUtilConfig<GridMap>>(
+        gridMap.get());
+      mapContainer.emplace_back(
+        std::move(gridMap), std::move(gridMapUtil), scanMatcher);
 
       resolution /= 2;
       mapResolution*=2.0f;

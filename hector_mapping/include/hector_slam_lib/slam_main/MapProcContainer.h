@@ -29,6 +29,8 @@
 #ifndef _hectormapproccontainer_h__
 #define _hectormapproccontainer_h__
 
+#include <memory>
+
 #include "../map/GridMap.h"
 #include "../map/OccGridMapUtilConfig.h"
 #include "../matcher/ScanMatcher.h"
@@ -43,25 +45,38 @@ namespace hectorslam{
 class MapProcContainer
 {
 public:
-  MapProcContainer(GridMap* gridMapIn, OccGridMapUtilConfig<GridMap>* gridMapUtilIn, ScanMatcher<OccGridMapUtilConfig<GridMap> >* scanMatcherIn)
-    : gridMap(gridMapIn)
-    , gridMapUtil(gridMapUtilIn)
-    , scanMatcher(scanMatcherIn)
-    , mapMutex(0)
-  {}
+  // Type declarations for convenience
+  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
+  using ConcreteScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
 
-  virtual ~MapProcContainer()
-  {}
+  MapProcContainer(
+    std::unique_ptr<GridMap> gridMapIn,
+    std::unique_ptr<GridMapUtil> gridMapUtilIn,
+    const std::shared_ptr<ConcreteScanMatcher>& scanMatcherIn) :
+    gridMap(std::move(gridMapIn)),
+    gridMapUtil(std::move(gridMapUtilIn)),
+    scanMatcher(scanMatcherIn),
+    mapMutex(nullptr) { }
+
+  virtual ~MapProcContainer() { }
+
+  // Copy constructor (deleted)
+  MapProcContainer(const MapProcContainer&) = delete;
+  // Copy assignment operator (deleted)
+  MapProcContainer& operator=(const MapProcContainer&) = delete;
+  // Move constructor
+  MapProcContainer(MapProcContainer&&) = default;
+  // Move assignment operator
+  MapProcContainer& operator=(MapProcContainer&&) = default;
 
   void cleanup()
   {
-    delete gridMap;
-    delete gridMapUtil;
-    delete scanMatcher;
+    this->gridMap.reset();
+    this->gridMapUtil.reset();
+    this->scanMatcher.reset();
 
-    if (mapMutex){
-      delete mapMutex;
-    }
+    if (this->mapMutex != nullptr)
+      this->mapMutex.reset();
   }
 
   void reset()
@@ -82,17 +97,12 @@ public:
 
   void addMapMutex(MapLockerInterface* mapMutexIn)
   {
-    if (mapMutex)
-    {
-      delete mapMutex;
-    }
-
-    mapMutex = mapMutexIn;
+    this->mapMutex.reset(mapMutexIn);
   }
 
   MapLockerInterface* getMapMutex()
   {
-    return mapMutex;
+    return this->mapMutex.get();
   }
 
   Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix, int maxIterations)
@@ -115,10 +125,10 @@ public:
     }
   }
 
-  GridMap* gridMap;
-  OccGridMapUtilConfig<GridMap>* gridMapUtil;
-  ScanMatcher<OccGridMapUtilConfig<GridMap> >* scanMatcher;
-  MapLockerInterface* mapMutex;
+  std::unique_ptr<GridMap> gridMap;
+  std::unique_ptr<GridMapUtil> gridMapUtil;
+  std::shared_ptr<ConcreteScanMatcher> scanMatcher;
+  std::unique_ptr<MapLockerInterface> mapMutex;
 };
 
 }
