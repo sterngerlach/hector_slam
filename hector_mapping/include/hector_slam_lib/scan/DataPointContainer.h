@@ -88,6 +88,10 @@ public:
     origo = origoIn;
   }
 
+  // Get the reference to the underlying vector
+  inline const std::vector<DataPointType>& getVector() const
+  { return this->dataPoints; }
+
 protected:
 
   std::vector<DataPointType> dataPoints;
