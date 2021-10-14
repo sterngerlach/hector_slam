@@ -42,16 +42,9 @@ typedef GridMapCacheArray GridMapCacheMethod;
 
 namespace hectorslam {
 
-template<typename ConcreteOccGridMap>
-class OccGridMapUtilConfig
-  : public OccGridMapUtil<ConcreteOccGridMap, GridMapCacheMethod>
-{
-public:
-
-  OccGridMapUtilConfig(ConcreteOccGridMap* gridMap = 0)
-    : OccGridMapUtil<ConcreteOccGridMap, GridMapCacheMethod>(gridMap)
-  {}
-};
+template <typename ConcreteOccGridMap>
+using OccGridMapUtilConfig = OccGridMapUtil<
+  ConcreteOccGridMap, GridMapCacheMethod>;
 
 }
 
