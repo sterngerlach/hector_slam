@@ -26,17 +26,17 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __OccGridMapUtilConfig_h_
-#define __OccGridMapUtilConfig_h_
+#ifndef HECTOR_SLAM_MAP_OCC_GRID_MAP_UTIL_CONFIG_H
+#define HECTOR_SLAM_MAP_OCC_GRID_MAP_UTIL_CONFIG_H
 
-#include "OccGridMapUtil.h"
+#include "map/OccGridMapUtil.h"
 
-//#define SLAM_USE_HASH_CACHING
+// #define SLAM_USE_HASH_CACHING
 #ifdef SLAM_USE_HASH_CACHING
-#include "GridMapCacheHash.h"
+#include "map/GridMapCacheHash.h"
 typedef GridMapCacheHash GridMapCacheMethod;
 #else
-#include "GridMapCacheArray.h"
+#include "map/GridMapCacheArray.h"
 typedef GridMapCacheArray GridMapCacheMethod;
 #endif
 
@@ -46,6 +46,6 @@ template <typename ConcreteOccGridMap>
 using OccGridMapUtilConfig = OccGridMapUtil<
   ConcreteOccGridMap, GridMapCacheMethod>;
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_MAP_OCC_GRID_MAP_UTIL_CONFIG_H
