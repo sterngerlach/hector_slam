@@ -26,9 +26,10 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __DataPointContainer_h_
-#define __DataPointContainer_h_
+#ifndef HECTOR_SLAM_SCAN_DATA_POINT_CONTAINER_H
+#define HECTOR_SLAM_SCAN_DATA_POINT_CONTAINER_H
 
+#include <algorithm>
 #include <vector>
 #include <Eigen/Core>
 
@@ -38,68 +39,44 @@ template<typename DataPointType>
 class DataPointContainer
 {
 public:
-
   DataPointContainer(int size = 1000)
   {
-    dataPoints.reserve(size);
+    this->dataPoints.reserve(size);
   }
 
   void setFrom(const DataPointContainer& other, float factor)
   {
-    origo = other.getOrigo()*factor;
-
-    dataPoints = other.dataPoints;
-
-    unsigned int size = dataPoints.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      dataPoints[i] *= factor;
-    }
-
+    this->origo = other.getOrigo() * factor;
+    this->dataPoints = other.dataPoints;
+    std::for_each(this->dataPoints.begin(), this->dataPoints.end(),
+                  [factor](DataPointType& point) { point *= factor; });
   }
 
-  void add(const DataPointType& dataPoint)
-  {
-    dataPoints.push_back(dataPoint);
-  }
+  inline void add(const DataPointType& dataPoint)
+  { this->dataPoints.push_back(dataPoint); }
 
-  void clear()
-  {
-    dataPoints.clear();
-  }
+  inline void clear() { this->dataPoints.clear(); }
 
-  int getSize() const
-  {
-    return dataPoints.size();
-  }
+  inline int getSize() const
+  { return static_cast<int>(this->dataPoints.size()); }
 
-  const DataPointType& getVecEntry(int index) const
-  {
-    return dataPoints[index];
-  }
+  inline const DataPointType& getVecEntry(int index) const
+  { return this->dataPoints[index]; }
 
-  DataPointType getOrigo() const
-  {
-    return origo;
-  }
-
-  void setOrigo(const DataPointType& origoIn)
-  {
-    origo = origoIn;
-  }
+  inline DataPointType getOrigo() const { return this->origo; }
+  inline void setOrigo(const DataPointType& origoIn) { this->origo = origoIn; }
 
   // Get the reference to the underlying vector
   inline const std::vector<DataPointType>& getVector() const
   { return this->dataPoints; }
 
 protected:
-
   std::vector<DataPointType> dataPoints;
   DataPointType origo;
 };
 
 typedef DataPointContainer<Eigen::Vector2f> DataContainer;
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_SCAN_DATA_POINT_CONTAINER_H
