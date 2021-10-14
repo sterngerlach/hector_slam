@@ -29,6 +29,8 @@
 #ifndef drawinterface_h__
 #define drawinterface_h__
 
+#include <Eigen/Core>
+
 class DrawInterface{
 public:
   virtual void drawPoint(const Eigen::Vector2f& pointWorldFrame) = 0;
