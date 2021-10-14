@@ -26,17 +26,17 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef hectordebuginfointerface_h__
-#define hectordebuginfointerface_h__
+#ifndef HECTOR_SLAM_UTIL_HECTOR_DEBUG_INFO_INTERFACE_H
+#define HECTOR_SLAM_UTIL_HECTOR_DEBUG_INFO_INTERFACE_H
 
 #include <Eigen/Core>
 
-class HectorDebugInfoInterface{
+class HectorDebugInfoInterface
+{
 public:
-
   virtual void sendAndResetData() = 0;
   virtual void addHessianMatrix(const Eigen::Matrix3f& hessian) = 0;
   virtual void addPoseLikelihood(float lh) = 0;
 };
 
-#endif
+#endif // HECTOR_SLAM_UTIL_HECTOR_DEBUG_INFO_INTERFACE_H
