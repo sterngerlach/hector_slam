@@ -329,6 +329,8 @@ public:
       cacheMethod.cacheData(index, intensities[3]);
     }
 
+    // `intensities` represent the occupancy probability values at the
+    // grid cells (x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)
     float dx1 = intensities[0] - intensities[1];
     float dx2 = intensities[2] - intensities[3];
 
@@ -341,8 +343,8 @@ public:
     return Eigen::Vector3f(
       ((intensities[0] * xFacInv + intensities[1] * factors[0]) * (yFacInv)) +
       ((intensities[2] * xFacInv + intensities[3] * factors[0]) * (factors[1])),
-      -((dx1 * xFacInv) + (dx2 * factors[0])),
-      -((dy1 * yFacInv) + (dy2 * factors[1]))
+      -((dx1 * yFacInv) + (dx2 * factors[1])),
+      -((dy1 * xFacInv) + (dy2 * factors[0]))
     );
   }
 
