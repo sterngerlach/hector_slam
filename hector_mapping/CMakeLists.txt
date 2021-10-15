@@ -78,6 +78,11 @@ target_sources(hector_mapping PRIVATE
   src/hw/mmio.cpp)
 
 target_sources(hector_mapping PRIVATE
+  src/matcher/ScanMatcherCorrelative.cpp
+  src/matcher/ScanMatcherFPGA.cpp
+  src/matcher/ScanMatcherGaussNewton.cpp)
+
+target_sources(hector_mapping PRIVATE
   src/slam_main/MapRepMultiMap.cpp)
 
 add_dependencies(hector_mapping hector_mapping_generate_messages_cpp)
