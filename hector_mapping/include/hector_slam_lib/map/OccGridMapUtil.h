@@ -56,10 +56,28 @@ public:
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  inline Eigen::Vector3f getWorldCoordsPose(const Eigen::Vector3f& mapPose) const { return concreteGridMap->getWorldCoordsPose(mapPose); };
-  inline Eigen::Vector3f getMapCoordsPose(const Eigen::Vector3f& worldPose) const { return concreteGridMap->getMapCoordsPose(worldPose); };
+  inline Eigen::Vector3f getWorldCoordsPose(
+    const Eigen::Vector3f& mapPose) const
+  { return this->concreteGridMap->getWorldCoordsPose(mapPose); };
+  inline Eigen::Vector3f getMapCoordsPose(
+    const Eigen::Vector3f& worldPose) const
+  { return this->concreteGridMap->getMapCoordsPose(worldPose); };
 
-  inline Eigen::Vector2f getWorldCoordsPoint(const Eigen::Vector2f& mapPoint) const { return concreteGridMap->getWorldCoords(mapPoint); };
+  inline Eigen::Vector2f getWorldCoordsPoint(
+    const Eigen::Vector2f& mapPoint) const
+  { return this->concreteGridMap->getWorldCoords(mapPoint); };
+
+  inline int getMapSizeX() const
+  { return this->concreteGridMap->getSizeX(); }
+  inline int getMapSizeY() const
+  { return this->concreteGridMap->getSizeY(); }
+  inline float getScaleToMap() const
+  { return this->concreteGridMap->getScaleToMap(); }
+  inline float getCellLength() const
+  { return this->concreteGridMap->getCellLength(); }
+
+  inline Eigen::AlignedBox2i getBoundingBox() const
+  { return this->concreteGridMap->getBoundingBox(); }
 
   void getCompleteHessianDerivs(const Eigen::Vector3f& pose, const DataContainer& dataPoints, Eigen::Matrix3f& H, Eigen::Vector3f& dTr)
   {
