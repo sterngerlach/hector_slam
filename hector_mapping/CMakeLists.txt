@@ -68,6 +68,9 @@ add_executable(hector_mapping
   src/PoseInfoContainer.h
 )
 
+target_sources(hector_mapping PRIVATE
+  src/slam_main/MapRepMultiMap.cpp)
+
 add_dependencies(hector_mapping hector_mapping_generate_messages_cpp)
 
 target_link_libraries(hector_mapping
