@@ -26,20 +26,16 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef _hectormapproccontainer_h__
-#define _hectormapproccontainer_h__
+#ifndef HECTOR_SLAM_SLAM_MAIN_MAP_PROC_CONTAINER_H
+#define HECTOR_SLAM_SLAM_MAIN_MAP_PROC_CONTAINER_H
 
 #include <memory>
 
-#include "../map/GridMap.h"
-#include "../map/OccGridMapUtilConfig.h"
-#include "../util/MapLockerInterface.h"
+#include "map/GridMap.h"
+#include "map/OccGridMapUtilConfig.h"
+#include "util/MapLockerInterface.h"
 
-class GridMap;
-class ConcreteOccGridMapUtil;
-class DataContainer;
-
-namespace hectorslam{
+namespace hectorslam {
 
 class MapProcContainer
 {
@@ -47,14 +43,13 @@ public:
   // Type declarations for convenience
   using GridMapUtil = OccGridMapUtilConfig<GridMap>;
 
-  MapProcContainer(
-    std::unique_ptr<GridMap> gridMapIn,
-    std::unique_ptr<GridMapUtil> gridMapUtilIn) :
+  MapProcContainer(std::unique_ptr<GridMap> gridMapIn,
+                   std::unique_ptr<GridMapUtil> gridMapUtilIn) :
     gridMap(std::move(gridMapIn)),
     gridMapUtil(std::move(gridMapUtilIn)),
     mapMutex(nullptr) { }
 
-  virtual ~MapProcContainer() { }
+  virtual ~MapProcContainer() = default;
 
   // Copy constructor (deleted)
   MapProcContainer(const MapProcContainer&) = delete;
@@ -70,6 +65,6 @@ public:
   std::unique_ptr<MapLockerInterface> mapMutex;
 };
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_SLAM_MAIN_MAP_PROC_CONTAINER_H
