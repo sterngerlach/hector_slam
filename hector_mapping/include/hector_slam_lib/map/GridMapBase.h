@@ -328,60 +328,6 @@ public:
   void setUpdated() { lastUpdateIndex++; };
   int getUpdateIndex() const { return lastUpdateIndex; };
 
-  /**
-    * Returns the rectangle ([xMin,yMin],[xMax,xMax]) containing non-default cell values
-    */
-  bool getMapExtends(int& xMax, int& yMax, int& xMin, int& yMin) const
-  {
-    int lowerStart = -1;
-    int upperStart = 10000;
-
-    int xMaxTemp = lowerStart;
-    int yMaxTemp = lowerStart;
-    int xMinTemp = upperStart;
-    int yMinTemp = upperStart;
-
-    int sizeX = this->getSizeX();
-    int sizeY = this->getSizeY();
-
-    for (int x = 0; x < sizeX; ++x) {
-      for (int y = 0; y < sizeY; ++y) {
-        if (this->mapArray[x][y].getValue() != 0.0f) {
-
-          if (x > xMaxTemp) {
-            xMaxTemp = x;
-          }
-
-          if (x < xMinTemp) {
-            xMinTemp = x;
-          }
-
-          if (y > yMaxTemp) {
-            yMaxTemp = y;
-          }
-
-          if (y < yMinTemp) {
-            yMinTemp = y;
-          }
-        }
-      }
-    }
-
-    if ((xMaxTemp != lowerStart) &&
-        (yMaxTemp != lowerStart) &&
-        (xMinTemp != upperStart) &&
-        (yMinTemp != upperStart)) {
-
-      xMax = xMaxTemp;
-      yMax = yMaxTemp;
-      xMin = xMinTemp;
-      yMin = yMinTemp;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
 protected:
 
   ConcreteCellType *mapArray;    ///< Map representation used with plain pointer array.
