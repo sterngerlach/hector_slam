@@ -40,9 +40,6 @@ namespace hectorslam {
 class MapProcContainer
 {
 public:
-  // Type declarations for convenience
-  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
-
   MapProcContainer(std::unique_ptr<GridMap> gridMapIn,
                    std::unique_ptr<GridMapUtil> gridMapUtilIn) :
     gridMap(std::move(gridMapIn)),

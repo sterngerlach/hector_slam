@@ -29,12 +29,11 @@
 #ifndef HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
 #define HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
 
-#include <functional>
 #include <memory>
 #include <Eigen/Core>
 
 #include "map/GridMap.h"
-#include "map/OccGridMapUtilConfig.h"
+#include "matcher/ScanMatcherTypes.hpp"
 #include "scan/DataPointContainer.h"
 #include "slam_main/MapRepresentationInterface.h"
 #include "slam_main/MapProcContainer.h"
@@ -46,15 +45,6 @@ namespace hectorslam {
 class MapRepMultiMap : public MapRepresentationInterface
 {
 public:
-  // Type definition for the occupancy grid map
-  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
-  // Type definition for the scan matcher callback which takes the initial
-  // pose estimate, occupancy grid map, scan, reference to the resulting
-  // pose covariance, and index of the map, and returns the pose estimate
-  using ScanMatchCallback = std::function<
-    Eigen::Vector3f(const Eigen::Vector3f&, GridMapUtil&,
-      const DataContainer&, Eigen::Matrix3f&, const int)>;
-
   MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY,
                  unsigned int numDepth, const Eigen::Vector2f& startCoords,
                  ScanMatchCallback scanMatchCallback,

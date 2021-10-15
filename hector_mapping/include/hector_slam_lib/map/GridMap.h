@@ -29,16 +29,19 @@
 #ifndef __GridMap_h_
 #define __GridMap_h_
 
-#include "OccGridMapBase.h"
-#include "GridMapLogOdds.h"
-#include "GridMapReflectanceCount.h"
-#include "GridMapSimpleCount.h"
+#include "map/GridMapLogOdds.h"
+#include "map/GridMapReflectanceCount.h"
+#include "map/GridMapSimpleCount.h"
+#include "map/OccGridMapBase.h"
+#include "map/OccGridMapUtilConfig.h"
 
 namespace hectorslam {
 
-typedef OccGridMapBase<LogOddsCell, GridMapLogOddsFunctions> GridMap;
-//typedef OccGridMapBase<SimpleCountCell, GridMapSimpleCountFunctions> GridMap;
-//typedef OccGridMapBase<ReflectanceCell, GridMapReflectanceFunctions> GridMap;
+using GridMap = OccGridMapBase<LogOddsCell, GridMapLogOddsFunctions>;
+using GridMapUtil = OccGridMapUtilConfig<GridMap>;
+
+// typedef OccGridMapBase<SimpleCountCell, GridMapSimpleCountFunctions> GridMap;
+// typedef OccGridMapBase<ReflectanceCell, GridMapReflectanceFunctions> GridMap;
 
 }
 

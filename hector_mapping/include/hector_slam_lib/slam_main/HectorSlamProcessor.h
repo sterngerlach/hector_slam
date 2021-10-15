@@ -29,19 +29,16 @@
 #ifndef _hectorslamprocessor_h__
 #define _hectorslamprocessor_h__
 
-#include "../map/GridMap.h"
-#include "../map/OccGridMapUtilConfig.h"
-#include "../matcher/ScanMatcher.h"
-#include "../scan/DataPointContainer.h"
-
-#include "../util/UtilFunctions.h"
-#include "../util/DrawInterface.h"
-#include "../util/HectorDebugInfoInterface.h"
-#include "../util/MapLockerInterface.h"
-
-#include "MapRepresentationInterface.h"
-#include "MapRepMultiMap.h"
-
+#include "map/GridMap.h"
+#include "map/OccGridMapUtilConfig.h"
+#include "matcher/ScanMatcherTypes.hpp"
+#include "scan/DataPointContainer.h"
+#include "slam_main/MapRepresentationInterface.h"
+#include "slam_main/MapRepMultiMap.h"
+#include "util/UtilFunctions.h"
+#include "util/DrawInterface.h"
+#include "util/HectorDebugInfoInterface.h"
+#include "util/MapLockerInterface.h"
 
 #include <float.h>
 
@@ -50,14 +47,12 @@ namespace hectorslam{
 class HectorSlamProcessor
 {
 public:
-
-  // Type definitions for the default scan matcher
-  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
-  using DefaultScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
-
-  HectorSlamProcessor(float mapResolution, int mapSizeX, int mapSizeY , const Eigen::Vector2f& startCoords, int multi_res_size, DrawInterface* drawInterfaceIn = 0, HectorDebugInfoInterface* debugInterfaceIn = 0)
-    : drawInterface(drawInterfaceIn)
-    , debugInterface(debugInterfaceIn)
+  HectorSlamProcessor(float mapResolution, int mapSizeX, int mapSizeY,
+                      const Eigen::Vector2f& startCoords, int multi_res_size,
+                      DrawInterface* drawInterfaceIn = nullptr,
+                      HectorDebugInfoInterface* debugInterfaceIn = nullptr) :
+    drawInterface(drawInterfaceIn),
+    debugInterface(debugInterfaceIn)
   {
     this->mDefaultScanMatcher = std::make_unique<DefaultScanMatcher>(
       this->drawInterface, this->debugInterface);
