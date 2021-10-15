@@ -69,62 +69,6 @@ public:
   // Move assignment operator
   MapProcContainer& operator=(MapProcContainer&&) = default;
 
-  void cleanup()
-  {
-    this->gridMap.reset();
-    this->gridMapUtil.reset();
-    this->scanMatcher.reset();
-
-    if (this->mapMutex != nullptr)
-      this->mapMutex.reset();
-  }
-
-  void reset()
-  {
-    gridMap->reset();
-    gridMapUtil->resetCachedData();
-  }
-
-  void resetCachedData()
-  {
-    gridMapUtil->resetCachedData();
-  }
-
-  float getScaleToMap() const { return gridMap->getScaleToMap(); };
-
-  const GridMap& getGridMap() const { return *gridMap; };
-  GridMap& getGridMap() { return *gridMap; };
-
-  void addMapMutex(MapLockerInterface* mapMutexIn)
-  {
-    this->mapMutex.reset(mapMutexIn);
-  }
-
-  MapLockerInterface* getMapMutex()
-  {
-    return this->mapMutex.get();
-  }
-
-  Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix, int maxIterations)
-  {
-    return scanMatcher->matchData(beginEstimateWorld, *gridMapUtil, dataContainer, covMatrix, maxIterations);
-  }
-
-  void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld)
-  {
-    if (mapMutex)
-    {
-      mapMutex->lockMap();
-    }
-
-    gridMap->updateByScan(dataContainer, robotPoseWorld);
-
-    if (mapMutex)
-    {
-      mapMutex->unlockMap();
-    }
-  }
-
   std::unique_ptr<GridMap> gridMap;
   std::unique_ptr<GridMapUtil> gridMapUtil;
   std::shared_ptr<ConcreteScanMatcher> scanMatcher;

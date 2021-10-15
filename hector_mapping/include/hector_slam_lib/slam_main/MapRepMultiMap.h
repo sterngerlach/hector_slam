@@ -79,97 +79,88 @@ public:
 
   virtual ~MapRepMultiMap()
   {
-    unsigned int size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      mapContainer[i].cleanup();
-    }
   }
 
   virtual void reset()
   {
-    unsigned int size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      mapContainer[i].reset();
+    for (auto& map : this->mapContainer) {
+      map.gridMap->reset();
+      map.gridMapUtil->resetCachedData();
     }
   }
 
-  virtual float getScaleToMap() const { return mapContainer[0].getScaleToMap(); };
+  virtual float getScaleToMap() const
+  { return this->mapContainer[0].gridMap->getScaleToMap(); }
 
   virtual int getMapLevels() const { return mapContainer.size(); };
-  virtual const GridMap& getGridMap(int mapLevel) const { return mapContainer[mapLevel].getGridMap(); };
+  virtual const GridMap& getGridMap(int mapLevel) const
+  { return *this->mapContainer[mapLevel].gridMap; }
 
-  virtual void addMapMutex(int i, MapLockerInterface* mapMutex)
-  {
-    mapContainer[i].addMapMutex(mapMutex);
-  }
+  virtual void addMapMutex(int i, MapLockerInterface* mutex)
+  { this->mapContainer[i].mapMutex.reset(mutex); }
 
-  MapLockerInterface* getMapMutex(int i)
-  {
-    return mapContainer[i].getMapMutex();
-  }
+  inline MapLockerInterface* getMapMutex(int i)
+  { return this->mapContainer[i].mapMutex.get(); }
 
   virtual void onMapUpdated()
   {
-    unsigned int size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      mapContainer[i].resetCachedData();
-    }
+    for (auto& map : this->mapContainer)
+      map.gridMapUtil->resetCachedData();
   }
 
-  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
+  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld,
+                                    const DataContainer& dataContainer,
+                                    Eigen::Matrix3f& covMatrix)
   {
-    size_t size = mapContainer.size();
+    const std::size_t size = this->mapContainer.size();
 
-    Eigen::Vector3f tmp(beginEstimateWorld);
+    Eigen::Vector3f poseEstimate = beginEstimateWorld;
 
-    for (int index = size - 1; index >= 0; --index){
-      //std::cout << " m " << i;
-      if (index == 0){
-        tmp  = (mapContainer[index].matchData(tmp, dataContainer, covMatrix, 5));
-      }else{
-        dataContainers[index-1].setFrom(dataContainer, static_cast<float>(1.0 / pow(2.0, static_cast<double>(index))));
-        tmp  = (mapContainer[index].matchData(tmp, dataContainers[index-1], covMatrix, 3));
+    for (int index = size - 1; index >= 0; --index) {
+      auto& map = this->mapContainer[index];
+      if (index == 0) {
+        poseEstimate = map.scanMatcher->matchData(
+          poseEstimate, *map.gridMapUtil, dataContainer, covMatrix, 5);
+      } else {
+        const float scale = 1.0f / std::pow(2.0f, static_cast<float>(index));
+        this->dataContainers[index - 1].setFrom(dataContainer, scale);
+        poseEstimate = map.scanMatcher->matchData(
+          poseEstimate, *map.gridMapUtil,
+          this->dataContainers[index - 1], covMatrix, 3);
       }
     }
-    return tmp;
+    return poseEstimate;
   }
 
-  virtual void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld)
+  virtual void updateByScan(const DataContainer& dataContainer,
+                            const Eigen::Vector3f& robotPoseWorld)
   {
-    unsigned int size = mapContainer.size();
+    const std::size_t size = this->mapContainer.size();
 
-    for (unsigned int i = 0; i < size; ++i){
-      //std::cout << " u " <<  i;
-      if (i==0){
-        mapContainer[i].updateByScan(dataContainer, robotPoseWorld);
-      }else{
-        mapContainer[i].updateByScan(dataContainers[i-1], robotPoseWorld);
-      }
+    for (std::size_t i = 0; i < size; ++i) {
+      auto& map = this->mapContainer[i];
+      const auto& scan = (i == 0) ? dataContainer : this->dataContainers[i - 1];
+
+      if (map.mapMutex != nullptr)
+        map.mapMutex->lockMap();
+
+      map.gridMap->updateByScan(scan, robotPoseWorld);
+
+      if (map.mapMutex != nullptr)
+        map.mapMutex->unlockMap();
     }
-    //std::cout << "\n";
   }
 
   virtual void setUpdateFactorFree(float free_factor)
   {
-    size_t size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      GridMap& map = mapContainer[i].getGridMap();
-      map.setUpdateFreeFactor(free_factor);
-    }
+    for (auto& map : this->mapContainer)
+      map.gridMap->setUpdateFreeFactor(free_factor);
   }
 
   virtual void setUpdateFactorOccupied(float occupied_factor)
   {
-    size_t size = mapContainer.size();
-
-    for (unsigned int i = 0; i < size; ++i){
-      GridMap& map = mapContainer[i].getGridMap();
-      map.setUpdateOccupiedFactor(occupied_factor);
-    }
+    for (auto& map : this->mapContainer)
+      map.gridMap->setUpdateOccupiedFactor(occupied_factor);
   }
 
 protected:
