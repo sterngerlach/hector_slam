@@ -29,11 +29,13 @@
 #ifndef HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
 #define HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
 
+#include <functional>
 #include <memory>
+#include <Eigen/Core>
 
 #include "map/GridMap.h"
 #include "map/OccGridMapUtilConfig.h"
-#include "matcher/ScanMatcher.h"
+#include "scan/DataPointContainer.h"
 #include "slam_main/MapRepresentationInterface.h"
 #include "slam_main/MapProcContainer.h"
 #include "util/DrawInterface.h"
@@ -44,12 +46,18 @@ namespace hectorslam {
 class MapRepMultiMap : public MapRepresentationInterface
 {
 public:
-  // Type declaration for convenience
+  // Type definition for the occupancy grid map
   using GridMapUtil = OccGridMapUtilConfig<GridMap>;
-  using ConcreteScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
+  // Type definition for the scan matcher callback which takes the initial
+  // pose estimate, occupancy grid map, scan, reference to the resulting
+  // pose covariance, and index of the map, and returns the pose estimate
+  using ScanMatchCallback = std::function<
+    Eigen::Vector3f(const Eigen::Vector3f&, GridMapUtil&,
+      const DataContainer&, Eigen::Matrix3f&, const int)>;
 
   MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY,
                  unsigned int numDepth, const Eigen::Vector2f& startCoords,
+                 ScanMatchCallback scanMatchCallback,
                  DrawInterface* drawInterfaceIn,
                  HectorDebugInfoInterface* debugInterfaceIn);
 
@@ -58,16 +66,16 @@ public:
   virtual void reset() override;
 
   virtual float getScaleToMap() const override
-  { return this->mapContainer[0].gridMap->getScaleToMap(); }
+  { return this->mMapContainer[0].gridMap->getScaleToMap(); }
   virtual int getMapLevels() const override
-  { return this->mapContainer.size(); };
+  { return this->mMapContainer.size(); };
   virtual const GridMap& getGridMap(int mapLevel) const override
-  { return *this->mapContainer[mapLevel].gridMap; }
+  { return *this->mMapContainer[mapLevel].gridMap; }
 
   virtual void addMapMutex(int i, MapLockerInterface* mutex) override
-  { this->mapContainer[i].mapMutex.reset(mutex); }
+  { this->mMapContainer[i].mapMutex.reset(mutex); }
   inline MapLockerInterface* getMapMutex(int i) override
-  { return this->mapContainer[i].mapMutex.get(); }
+  { return this->mMapContainer[i].mapMutex.get(); }
 
   virtual void onMapUpdated() override;
 
@@ -82,9 +90,9 @@ public:
   virtual void setUpdateFactorOccupied(float occupiedFactor) override;
 
 protected:
-  std::vector<MapProcContainer> mapContainer;
-  std::vector<DataContainer> dataContainers;
-  std::shared_ptr<ConcreteScanMatcher> scanMatcher;
+  std::vector<MapProcContainer> mMapContainer;
+  std::vector<DataContainer> mDataContainers;
+  ScanMatchCallback mScanMatchCallback;
 };
 
 } // namespace hectorslam

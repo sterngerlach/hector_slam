@@ -51,11 +51,29 @@ class HectorSlamProcessor
 {
 public:
 
+  // Type definitions for the default scan matcher
+  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
+  using DefaultScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
+
   HectorSlamProcessor(float mapResolution, int mapSizeX, int mapSizeY , const Eigen::Vector2f& startCoords, int multi_res_size, DrawInterface* drawInterfaceIn = 0, HectorDebugInfoInterface* debugInterfaceIn = 0)
     : drawInterface(drawInterfaceIn)
     , debugInterface(debugInterfaceIn)
   {
-    mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY, multi_res_size, startCoords, drawInterfaceIn, debugInterfaceIn);
+    this->mDefaultScanMatcher = std::make_unique<DefaultScanMatcher>(
+      this->drawInterface, this->debugInterface);
+
+    auto scanMatchCallback = [&](
+      const Eigen::Vector3f& initialWorldPose,
+      GridMapUtil& gridMapUtil, const DataContainer& dataContainer,
+      Eigen::Matrix3f& covMatrix, const int mapIndex) {
+      const int maxIterations = mapIndex == 0 ? 5 : 3;
+      return this->mDefaultScanMatcher->matchData(
+        initialWorldPose, gridMapUtil,
+        dataContainer, covMatrix, maxIterations); };
+
+    mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY,
+      multi_res_size, startCoords, scanMatchCallback,
+      drawInterfaceIn, debugInterfaceIn);
 
     this->reset();
 
@@ -139,6 +157,8 @@ public:
   void setMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; };
 
 protected:
+
+  std::unique_ptr<DefaultScanMatcher> mDefaultScanMatcher;
 
   MapRepresentationInterface* mapRep;
 
