@@ -26,61 +26,64 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef _hectormaprepmultimap_h__
-#define _hectormaprepmultimap_h__
+#ifndef HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
+#define HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
 
 #include <memory>
 
-#include "MapRepresentationInterface.h"
-#include "MapProcContainer.h"
+#include "map/GridMap.h"
+#include "map/OccGridMapUtilConfig.h"
+#include "matcher/ScanMatcher.h"
+#include "slam_main/MapRepresentationInterface.h"
+#include "slam_main/MapProcContainer.h"
+#include "util/DrawInterface.h"
+#include "util/HectorDebugInfoInterface.h"
 
-#include "../map/GridMap.h"
-#include "../map/OccGridMapUtilConfig.h"
-#include "../matcher/ScanMatcher.h"
-
-#include "../util/DrawInterface.h"
-#include "../util/HectorDebugInfoInterface.h"
-
-namespace hectorslam{
+namespace hectorslam {
 
 class MapRepMultiMap : public MapRepresentationInterface
 {
 public:
   // Type declaration for convenience
+  using GridMapUtil = OccGridMapUtilConfig<GridMap>;
   using ConcreteScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
 
-  MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, unsigned int numDepth, const Eigen::Vector2f& startCoords, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
+  MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY,
+                 unsigned int numDepth, const Eigen::Vector2f& startCoords,
+                 DrawInterface* drawInterfaceIn,
+                 HectorDebugInfoInterface* debugInterfaceIn)
   {
-    //unsigned int numDepth = 3;
-    Eigen::Vector2i resolution(mapSizeX, mapSizeY);
+    // unsigned int numDepth = 3;
+    Eigen::Vector2i resolution { mapSizeX, mapSizeY };
 
-    float totalMapSizeX = mapResolution * static_cast<float>(mapSizeX);
-    float mid_offset_x = totalMapSizeX * startCoords.x();
-
-    float totalMapSizeY = mapResolution * static_cast<float>(mapSizeY);
-    float mid_offset_y = totalMapSizeY * startCoords.y();
+    const float totalMapSizeX = mapResolution * static_cast<float>(mapSizeX);
+    const float midOffsetX = totalMapSizeX * startCoords.x();
+    const float totalMapSizeY = mapResolution * static_cast<float>(mapSizeY);
+    const float midOffsetY = totalMapSizeY * startCoords.y();
+    const Eigen::Vector2f midOffset { midOffsetX, midOffsetY };
 
     this->scanMatcher = std::make_shared<ConcreteScanMatcher>(
       drawInterfaceIn, debugInterfaceIn);
 
-    for (unsigned int i = 0; i < numDepth; ++i){
-      std::cout << "HectorSM map lvl " << i << ": cellLength: " << mapResolution << " res x:" << resolution.x() << " res y: " << resolution.y() << "\n";
+    for (unsigned int i = 0; i < numDepth; ++i) {
+      std::cout << "HectorSM map lvl " << i << ": "
+                << "cellLength: " << mapResolution << ' '
+                << "res x: " << resolution.x() << ' '
+                << "res y: " << resolution.y() << '\n';
       auto gridMap = std::make_unique<GridMap>(
-        mapResolution, resolution, Eigen::Vector2f(mid_offset_x, mid_offset_y));
-      auto gridMapUtil = std::make_unique<OccGridMapUtilConfig<GridMap>>(
-        gridMap.get());
-      mapContainer.emplace_back(std::move(gridMap), std::move(gridMapUtil));
+        mapResolution, resolution, midOffset);
+      auto gridMapUtil = std::make_unique<GridMapUtil>(gridMap.get());
+      this->mapContainer.emplace_back(
+        std::move(gridMap), std::move(gridMapUtil));
 
       resolution /= 2;
-      mapResolution*=2.0f;
+      mapResolution *= 2.0f;
     }
 
-    dataContainers.resize(numDepth-1);
+    this->dataContainers.resize(numDepth - 1);
   }
 
-  virtual ~MapRepMultiMap()
-  {
-  }
+  virtual ~MapRepMultiMap() { }
 
   virtual void reset()
   {
@@ -92,8 +95,8 @@ public:
 
   virtual float getScaleToMap() const
   { return this->mapContainer[0].gridMap->getScaleToMap(); }
-
-  virtual int getMapLevels() const { return mapContainer.size(); };
+  virtual int getMapLevels() const
+  { return this->mapContainer.size(); };
   virtual const GridMap& getGridMap(int mapLevel) const
   { return *this->mapContainer[mapLevel].gridMap; }
 
@@ -152,16 +155,16 @@ public:
     }
   }
 
-  virtual void setUpdateFactorFree(float free_factor)
+  virtual void setUpdateFactorFree(float freeFactor)
   {
     for (auto& map : this->mapContainer)
-      map.gridMap->setUpdateFreeFactor(free_factor);
+      map.gridMap->setUpdateFreeFactor(freeFactor);
   }
 
-  virtual void setUpdateFactorOccupied(float occupied_factor)
+  virtual void setUpdateFactorOccupied(float occupiedFactor)
   {
     for (auto& map : this->mapContainer)
-      map.gridMap->setUpdateOccupiedFactor(occupied_factor);
+      map.gridMap->setUpdateOccupiedFactor(occupiedFactor);
   }
 
 protected:
@@ -170,6 +173,6 @@ protected:
   std::shared_ptr<ConcreteScanMatcher> scanMatcher;
 };
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_SLAM_MAIN_MAP_REP_MULTI_MAP_H
