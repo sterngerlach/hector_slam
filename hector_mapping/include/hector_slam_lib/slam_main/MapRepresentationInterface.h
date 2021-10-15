@@ -29,6 +29,8 @@
 #ifndef _hectormaprepresentationinterface_h__
 #define _hectormaprepresentationinterface_h__
 
+#include "util/MapLockerInterface.h"
+
 class GridMap;
 class ConcreteOccGridMapUtil;
 class DataContainer;
