@@ -29,8 +29,13 @@
 #ifndef __OccGridMapBase_h_
 #define __OccGridMapBase_h_
 
+#include <limits>
+#include <type_traits>
+
 #include "GridMapBase.h"
 
+#include "map/GridMapLogOdds.h"
+#include "map/GridMapSimpleCount.h"
 #include "../scan/DataPointContainer.h"
 #include "../util/UtilFunctions.h"
 
@@ -257,6 +262,36 @@ public:
 
       this->bresenhamCellFree(offset);
     }
+  }
+
+  template <typename std::enable_if_t<std::is_same<
+    ConcreteCellType, LogOddsCell>::value, std::nullptr_t> = nullptr>
+  Eigen::AlignedBox2i getBoundingBox() const
+  {
+    Eigen::Vector2i idxMin { std::numeric_limits<int>::max(),
+      std::numeric_limits<int>::max() };
+    Eigen::Vector2i idxMax { std::numeric_limits<int>::min(),
+      std::numeric_limits<int>::min() };
+
+    const int mapSizeX = this->getSizeX();
+    const int mapSizeY = this->getSizeY();
+
+    for (int y = 0; y < mapSizeY; ++y) {
+      for (int x = 0; x < mapSizeX; ++x) {
+        // Skip grid cells with no information (unknown occupancy probability)
+        if (this->getCell(x, y).getValue() == 0.0f)
+          continue;
+
+        idxMin.x() = std::min(idxMin.x(), x);
+        idxMin.y() = std::min(idxMin.y(), y);
+        idxMax.x() = std::max(idxMax.x(), x);
+        idxMax.y() = std::max(idxMax.y(), y);
+      }
+    }
+
+    // If the grid map has no grid cells with known occupancy probabilities,
+    // then the empty bounding box is returned
+    return Eigen::AlignedBox2i { idxMin, idxMax };
   }
 
 protected:
