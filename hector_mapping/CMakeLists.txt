@@ -69,6 +69,15 @@ add_executable(hector_mapping
 )
 
 target_sources(hector_mapping PRIVATE
+  src/hw/axi_dma.cpp
+  src/hw/axi_gpio.cpp
+  src/hw/bitstream_loader.cpp
+  src/hw/cma_manager.cpp
+  src/hw/cma_memory.cpp
+  src/hw/mmio_shared.cpp
+  src/hw/mmio.cpp)
+
+target_sources(hector_mapping PRIVATE
   src/slam_main/MapRepMultiMap.cpp)
 
 add_dependencies(hector_mapping hector_mapping_generate_messages_cpp)
@@ -76,6 +85,7 @@ add_dependencies(hector_mapping hector_mapping_generate_messages_cpp)
 target_link_libraries(hector_mapping
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
+  dl
 )
 
 #############
