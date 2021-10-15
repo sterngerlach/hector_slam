@@ -124,7 +124,26 @@ HectorMappingRos::HectorMappingRos()
     odometryPublisher_ = node_.advertise<nav_msgs::Odometry>("scanmatch_odom", 50);
   }
 
-  slamProcessor = new hectorslam::HectorSlamProcessor(static_cast<float>(p_map_resolution_), p_map_size_, p_map_size_, Eigen::Vector2f(p_map_start_x_, p_map_start_y_), p_map_multi_res_levels_, hectorDrawings, debugInfoProvider);
+  // Initialize the scan matcher
+  this->mDefaultScanMatcher = std::make_unique<
+    hectorslam::DefaultScanMatcher>(
+      this->hectorDrawings, this->debugInfoProvider);
+
+  const auto scanMatchCallback = [&](
+    const Eigen::Vector3f& initialWorldPose,
+    hectorslam::GridMapUtil& gridMapUtil,
+    const hectorslam::DataContainer& dataContainer,
+    Eigen::Matrix3f& covMatrix, const int mapIndex) {
+    const int maxIterations = mapIndex == 0 ? 5 : 3;
+    return this->mDefaultScanMatcher->matchData(
+      initialWorldPose, gridMapUtil,
+      dataContainer, covMatrix, maxIterations); };
+
+  slamProcessor = new hectorslam::HectorSlamProcessor(
+    static_cast<float>(p_map_resolution_), p_map_size_, p_map_size_,
+    Eigen::Vector2f(p_map_start_x_, p_map_start_y_), p_map_multi_res_levels_,
+    scanMatchCallback, hectorDrawings, debugInfoProvider);
+
   slamProcessor->setUpdateFactorFree(p_update_factor_free_);
   slamProcessor->setUpdateFactorOccupied(p_update_factor_occupied_);
   slamProcessor->setMapUpdateMinDistDiff(p_map_update_distance_threshold_);

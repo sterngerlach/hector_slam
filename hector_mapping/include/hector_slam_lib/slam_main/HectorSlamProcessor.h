@@ -49,23 +49,12 @@ class HectorSlamProcessor
 public:
   HectorSlamProcessor(float mapResolution, int mapSizeX, int mapSizeY,
                       const Eigen::Vector2f& startCoords, int multi_res_size,
+                      ScanMatchCallback scanMatchCallback,
                       DrawInterface* drawInterfaceIn = nullptr,
                       HectorDebugInfoInterface* debugInterfaceIn = nullptr) :
     drawInterface(drawInterfaceIn),
     debugInterface(debugInterfaceIn)
   {
-    this->mDefaultScanMatcher = std::make_unique<DefaultScanMatcher>(
-      this->drawInterface, this->debugInterface);
-
-    auto scanMatchCallback = [&](
-      const Eigen::Vector3f& initialWorldPose,
-      GridMapUtil& gridMapUtil, const DataContainer& dataContainer,
-      Eigen::Matrix3f& covMatrix, const int mapIndex) {
-      const int maxIterations = mapIndex == 0 ? 5 : 3;
-      return this->mDefaultScanMatcher->matchData(
-        initialWorldPose, gridMapUtil,
-        dataContainer, covMatrix, maxIterations); };
-
     mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY,
       multi_res_size, startCoords, scanMatchCallback,
       drawInterfaceIn, debugInterfaceIn);
@@ -152,8 +141,6 @@ public:
   void setMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; };
 
 protected:
-
-  std::unique_ptr<DefaultScanMatcher> mDefaultScanMatcher;
 
   MapRepresentationInterface* mapRep;
 

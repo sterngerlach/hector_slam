@@ -29,32 +29,33 @@
 #ifndef HECTOR_MAPPING_ROS_H__
 #define HECTOR_MAPPING_ROS_H__
 
-#include "ros/ros.h"
-
-#include "tf/transform_listener.h"
-#include "tf/transform_broadcaster.h"
-#include "tf/message_filter.h"
-#include "message_filters/subscriber.h"
-
-#include "sensor_msgs/LaserScan.h"
-#include <std_msgs/String.h>
-
-#include <hector_mapping/ResetMapping.h>
-#include <std_srvs/SetBool.h>
-#include <std_srvs/Trigger.h>
-
-#include "laser_geometry/laser_geometry.h"
-#include "nav_msgs/GetMap.h"
-
-#include "slam_main/HectorSlamProcessor.h"
-
-#include "scan/DataPointContainer.h"
-#include "util/MapLockerInterface.h"
-
+#include <memory>
 #include <boost/thread.hpp>
 
-#include "PoseInfoContainer.h"
+#include <ros/ros.h>
+#include <laser_geometry/laser_geometry.h>
+#include <message_filters/subscriber.h>
+#include <nav_msgs/GetMap.h>
+#include <sensor_msgs/LaserScan.h>
+#include <std_msgs/String.h>
+#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/message_filter.h>
 
+#include "hector_mapping/ResetMapping.h"
+
+#include "scan/DataPointContainer.h"
+#include "matcher/ScanMatcherCorrelative.hpp"
+#include "matcher/ScanMatcherFPGA.hpp"
+#include "matcher/ScanMatcherGaussNewton.hpp"
+#include "matcher/ScanMatcherOptions.hpp"
+#include "matcher/ScanMatcherTypes.hpp"
+#include "slam_main/HectorSlamProcessor.h"
+#include "util/MapLockerInterface.h"
+
+#include "PoseInfoContainer.h"
 
 class HectorDrawings;
 class HectorDebugInfoProvider;
@@ -143,6 +144,12 @@ protected:
 
   hectorslam::HectorSlamProcessor* slamProcessor;
   hectorslam::DataContainer laserScanContainer;
+
+  hectorslam::ScanMatcherOptions mScanMatcherOptions;
+  std::unique_ptr<hectorslam::DefaultScanMatcher> mDefaultScanMatcher;
+  std::unique_ptr<hectorslam::ScanMatcherCorrelative> mCorrelativeScanMatcher;
+  std::unique_ptr<hectorslam::ScanMatcherFPGA> mFPGAScanMatcher;
+  std::unique_ptr<hectorslam::ScanMatcherGaussNewton> mGaussNewtonScanMatcher;
 
   PoseInfoContainer poseInfoContainer_;
 
