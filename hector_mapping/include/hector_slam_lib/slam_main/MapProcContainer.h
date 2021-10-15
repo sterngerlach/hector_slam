@@ -33,7 +33,6 @@
 
 #include "../map/GridMap.h"
 #include "../map/OccGridMapUtilConfig.h"
-#include "../matcher/ScanMatcher.h"
 #include "../util/MapLockerInterface.h"
 
 class GridMap;
@@ -47,15 +46,12 @@ class MapProcContainer
 public:
   // Type declarations for convenience
   using GridMapUtil = OccGridMapUtilConfig<GridMap>;
-  using ConcreteScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
 
   MapProcContainer(
     std::unique_ptr<GridMap> gridMapIn,
-    std::unique_ptr<GridMapUtil> gridMapUtilIn,
-    const std::shared_ptr<ConcreteScanMatcher>& scanMatcherIn) :
+    std::unique_ptr<GridMapUtil> gridMapUtilIn) :
     gridMap(std::move(gridMapIn)),
     gridMapUtil(std::move(gridMapUtilIn)),
-    scanMatcher(scanMatcherIn),
     mapMutex(nullptr) { }
 
   virtual ~MapProcContainer() { }
@@ -71,7 +67,6 @@ public:
 
   std::unique_ptr<GridMap> gridMap;
   std::unique_ptr<GridMapUtil> gridMapUtil;
-  std::shared_ptr<ConcreteScanMatcher> scanMatcher;
   std::unique_ptr<MapLockerInterface> mapMutex;
 };
 

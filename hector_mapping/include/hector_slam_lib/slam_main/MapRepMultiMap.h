@@ -45,8 +45,10 @@ namespace hectorslam{
 
 class MapRepMultiMap : public MapRepresentationInterface
 {
-
 public:
+  // Type declaration for convenience
+  using ConcreteScanMatcher = ScanMatcher<OccGridMapUtilConfig<GridMap>>;
+
   MapRepMultiMap(float mapResolution, int mapSizeX, int mapSizeY, unsigned int numDepth, const Eigen::Vector2f& startCoords, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
   {
     //unsigned int numDepth = 3;
@@ -58,7 +60,7 @@ public:
     float totalMapSizeY = mapResolution * static_cast<float>(mapSizeY);
     float mid_offset_y = totalMapSizeY * startCoords.y();
 
-    auto scanMatcher = std::make_shared<ScanMatcher<OccGridMapUtilConfig<GridMap>>>(
+    this->scanMatcher = std::make_shared<ConcreteScanMatcher>(
       drawInterfaceIn, debugInterfaceIn);
 
     for (unsigned int i = 0; i < numDepth; ++i){
@@ -67,8 +69,7 @@ public:
         mapResolution, resolution, Eigen::Vector2f(mid_offset_x, mid_offset_y));
       auto gridMapUtil = std::make_unique<OccGridMapUtilConfig<GridMap>>(
         gridMap.get());
-      mapContainer.emplace_back(
-        std::move(gridMap), std::move(gridMapUtil), scanMatcher);
+      mapContainer.emplace_back(std::move(gridMap), std::move(gridMapUtil));
 
       resolution /= 2;
       mapResolution*=2.0f;
@@ -119,12 +120,12 @@ public:
     for (int index = size - 1; index >= 0; --index) {
       auto& map = this->mapContainer[index];
       if (index == 0) {
-        poseEstimate = map.scanMatcher->matchData(
+        poseEstimate = this->scanMatcher->matchData(
           poseEstimate, *map.gridMapUtil, dataContainer, covMatrix, 5);
       } else {
         const float scale = 1.0f / std::pow(2.0f, static_cast<float>(index));
         this->dataContainers[index - 1].setFrom(dataContainer, scale);
-        poseEstimate = map.scanMatcher->matchData(
+        poseEstimate = this->scanMatcher->matchData(
           poseEstimate, *map.gridMapUtil,
           this->dataContainers[index - 1], covMatrix, 3);
       }
@@ -166,6 +167,7 @@ public:
 protected:
   std::vector<MapProcContainer> mapContainer;
   std::vector<DataContainer> dataContainers;
+  std::shared_ptr<ConcreteScanMatcher> scanMatcher;
 };
 
 }
