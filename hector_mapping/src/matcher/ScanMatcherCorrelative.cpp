@@ -3,8 +3,43 @@
 
 #include "matcher/ScanMatcherCorrelative.hpp"
 #include "util/Assert.hpp"
+#include "util/Parameter.hpp"
+
+#define RETURN_NULLPTR_IF_FAILED(call) if (!(call)) return nullptr;
 
 namespace hectorslam {
+
+// Load the configuration settings and create a new instance
+std::unique_ptr<ScanMatcherCorrelative> ScanMatcherCorrelative::Create(
+  ros::NodeHandle& nh,
+  DrawInterface* pDrawInterface,
+  HectorDebugInfoInterface* pDebugInterface)
+{
+  ros::NodeHandle nhScanMatcher { nh, "scan_matcher_correlative" };
+
+  int coarseMapResolution;
+  Eigen::Vector3f searchWindow;
+  float angleSearchStepMin;
+  float angleSearchStepMax;
+
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "coarse_map_resolution", coarseMapResolution))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_x", searchWindow[0]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_y", searchWindow[1]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_theta", searchWindow[2]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "angle_search_step_min", angleSearchStepMin))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "angle_search_step_max", angleSearchStepMax))
+
+  return std::make_unique<ScanMatcherCorrelative>(
+    coarseMapResolution, searchWindow,
+    angleSearchStepMin, angleSearchStepMax,
+    pDrawInterface, pDebugInterface);
+}
 
 // Constructor
 ScanMatcherCorrelative::ScanMatcherCorrelative(

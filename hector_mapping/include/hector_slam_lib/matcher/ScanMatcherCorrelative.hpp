@@ -4,7 +4,9 @@
 #ifndef HECTOR_SLAM_MATCHER_SCAN_MATCHER_CORRELATIVE_HPP
 #define HECTOR_SLAM_MATCHER_SCAN_MATCHER_CORRELATIVE_HPP
 
+#include <memory>
 #include <Eigen/Core>
+#include <ros/node_handle.h>
 
 #include "map/GridMap.h"
 #include "map/GridMapCacheArray.h"
@@ -24,6 +26,12 @@ namespace hectorslam {
 class ScanMatcherCorrelative final
 {
 public:
+  // Load the configuration settings and create a new instance
+  static std::unique_ptr<ScanMatcherCorrelative> Create(
+    ros::NodeHandle& nh,
+    DrawInterface* pDrawInterface = nullptr,
+    HectorDebugInfoInterface* pDebugInterface = nullptr);
+
   // Constructor
   ScanMatcherCorrelative(const int coarseMapResolution,
                          const Eigen::Vector3f& searchWindow,
