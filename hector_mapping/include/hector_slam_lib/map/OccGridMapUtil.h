@@ -154,7 +154,7 @@ public:
 
     float invLhNormalizer = 1 / likelihoods.sum();
 
-    std::cout << "\n lhs:\n" << likelihoods;
+    // std::cout << "\n lhs:\n" << likelihoods;
 
     Eigen::Vector3f mean(Eigen::Vector3f::Zero());
 
