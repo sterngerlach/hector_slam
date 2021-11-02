@@ -56,6 +56,7 @@ HectorMappingRos::HectorMappingRos() :
   tfB_(nullptr),
   map__publish_thread_(nullptr),
   slamProcessor(nullptr),
+  mNumOfProcessedScans(0),
   mScanMatcherOption(hectorslam::ScanMatcherOption::Default),
   mDefaultScanMatcher(nullptr),
   mCorrelativeScanMatcher(nullptr),
@@ -420,6 +421,9 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
   {
     return;
   }
+
+  if (++this->mNumOfProcessedScans % 10 == 0)
+    ROS_INFO("Processing the frame: %d", this->mNumOfProcessedScans);
 
   if (hectorDrawings)
   {

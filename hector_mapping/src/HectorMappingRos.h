@@ -153,6 +153,8 @@ protected:
   hectorslam::HectorSlamProcessor* slamProcessor;
   hectorslam::DataContainer laserScanContainer;
 
+  int mNumOfProcessedScans;
+
   hectorslam::ScanMatcherOption mScanMatcherOption;
   std::unique_ptr<hectorslam::DefaultScanMatcher> mDefaultScanMatcher;
   std::unique_ptr<hectorslam::ScanMatcherCorrelative> mCorrelativeScanMatcher;
