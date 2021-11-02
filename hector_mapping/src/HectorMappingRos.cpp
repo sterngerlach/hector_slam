@@ -39,18 +39,30 @@
 #include "HectorDebugInfoProvider.h"
 #include "HectorMapMutex.h"
 
+#include "hw/bitstream_loader.hpp"
+#include "hw/cma_manager.hpp"
+#include "util/Parameter.hpp"
+
 #ifndef TF_SCALAR_H
   typedef btScalar tfScalar;
 #endif
 
-HectorMappingRos::HectorMappingRos()
-  : debugInfoProvider(0)
-  , hectorDrawings(0)
-  , lastGetMapUpdateIndex(-100)
-  , tfB_(0)
-  , map__publish_thread_(0)
-  , initial_pose_set_(false)
-  , pause_scan_processing_(false)
+using namespace hectorslam;
+
+HectorMappingRos::HectorMappingRos() :
+  debugInfoProvider(nullptr),
+  hectorDrawings(nullptr),
+  lastGetMapUpdateIndex(-100),
+  tfB_(nullptr),
+  map__publish_thread_(nullptr),
+  slamProcessor(nullptr),
+  mScanMatcherOption(hectorslam::ScanMatcherOption::Default),
+  mDefaultScanMatcher(nullptr),
+  mCorrelativeScanMatcher(nullptr),
+  mFPGAScanMatcher(nullptr),
+  mGaussNewtonScanMatcher(nullptr),
+  initial_pose_set_(false),
+  pause_scan_processing_(false)
 {
   ros::NodeHandle private_nh_("~");
 
@@ -124,25 +136,41 @@ HectorMappingRos::HectorMappingRos()
     odometryPublisher_ = node_.advertise<nav_msgs::Odometry>("scanmatch_odom", 50);
   }
 
-  // Initialize the scan matcher
-  this->mDefaultScanMatcher = std::make_unique<
-    hectorslam::DefaultScanMatcher>(
-      this->hectorDrawings, this->debugInfoProvider);
+  // Initialize CMA manager and load bitstream for FPGA acceleration
+  if (!this->setupFPGA(private_nh_))
+    std::exit(EXIT_FAILURE);
 
-  const auto scanMatchCallback = [&](
+  // Get the scan matching option
+  std::string scanMatcherOption;
+  if (!GetParamFromNodeHandle(private_nh_,
+      "scan_matcher_option", scanMatcherOption))
+    std::exit(EXIT_FAILURE);
+
+  this->mScanMatcherOption = StringToScanMatcherOption(scanMatcherOption);
+  if (this->mScanMatcherOption == ScanMatcherOption::Unknown) {
+    ROS_ERROR("Unknown scan matcher option: %s", scanMatcherOption.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Initialize the scan matcher
+  if (!this->initializeScanMatcher(private_nh_)) {
+    ROS_ERROR("Failed to initialize the scan matcher");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Create the callback for scan matching
+  const auto callback = [this](
     const Eigen::Vector3f& initialWorldPose,
-    hectorslam::GridMapUtil& gridMapUtil,
+    GridMapUtil& gridMapUtil,
     const hectorslam::DataContainer& dataContainer,
     Eigen::Matrix3f& covMatrix, const int mapIndex) {
-    const int maxIterations = mapIndex == 0 ? 5 : 3;
-    return this->mDefaultScanMatcher->matchData(
-      initialWorldPose, gridMapUtil,
-      dataContainer, covMatrix, maxIterations); };
+    return this->scanMatchCallback(
+      initialWorldPose, gridMapUtil, dataContainer, covMatrix, mapIndex); };
 
   slamProcessor = new hectorslam::HectorSlamProcessor(
     static_cast<float>(p_map_resolution_), p_map_size_, p_map_size_,
     Eigen::Vector2f(p_map_start_x_, p_map_start_y_), p_map_multi_res_levels_,
-    scanMatchCallback, hectorDrawings, debugInfoProvider);
+    callback, hectorDrawings, debugInfoProvider);
 
   slamProcessor->setUpdateFactorFree(p_update_factor_free_);
   slamProcessor->setUpdateFactorOccupied(p_update_factor_occupied_);
@@ -249,6 +277,141 @@ HectorMappingRos::~HectorMappingRos()
 
   if(map__publish_thread_)
     delete map__publish_thread_;
+}
+
+bool HectorMappingRos::setupFPGA(ros::NodeHandle& nh)
+{
+  // Get the option to enable FPGA acceleration
+  bool enableAcceleration;
+  if (!GetParamFromNodeHandle(nh,
+      "enable_fpga_acceleration", enableAcceleration))
+    return false;
+
+  if (!enableAcceleration)
+    return true;
+
+  // Initialize the CMA manager
+  auto* pCMAManager = hw::CMAMemoryManager::Instance();
+  if (!pCMAManager->Load()) {
+    ROS_ERROR("Failed to initialize CMA manager");
+    return false;
+  }
+
+  // Load the bitstream path
+  std::string bitstreamFileName;
+  if (!GetParamFromNodeHandle(nh, "bitstream_file_name", bitstreamFileName))
+    return false;
+
+  // Load the bitstream
+  hw::BitstreamLoader bitstreamLoader;
+  if (!bitstreamLoader.Load(bitstreamFileName)) {
+    ROS_ERROR("Failed to load the bitstream: %s", bitstreamFileName.c_str());
+    return false;
+  }
+
+  return true;
+}
+
+bool HectorMappingRos::initializeScanMatcher(ros::NodeHandle& nh)
+{
+  switch (this->mScanMatcherOption) {
+    case ScanMatcherOption::Default:
+      this->mDefaultScanMatcher = DefaultScanMatcher::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mDefaultScanMatcher != nullptr;
+
+    case ScanMatcherOption::GaussNewton:
+      this->mGaussNewtonScanMatcher = ScanMatcherGaussNewton::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mGaussNewtonScanMatcher != nullptr;
+
+    case ScanMatcherOption::Correlative:
+      this->mCorrelativeScanMatcher = ScanMatcherCorrelative::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mCorrelativeScanMatcher != nullptr;
+
+    case ScanMatcherOption::CorrelativeFPGA:
+      this->mFPGAScanMatcher = ScanMatcherFPGA::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mFPGAScanMatcher != nullptr;
+
+    case ScanMatcherOption::GaussNewtonAfterCorrelative:
+      this->mCorrelativeScanMatcher = ScanMatcherCorrelative::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      this->mGaussNewtonScanMatcher = ScanMatcherGaussNewton::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mCorrelativeScanMatcher != nullptr &&
+             this->mGaussNewtonScanMatcher != nullptr;
+
+    case ScanMatcherOption::GaussNewtonAfterCorrelativeFPGA:
+      this->mFPGAScanMatcher = ScanMatcherFPGA::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      this->mGaussNewtonScanMatcher = ScanMatcherGaussNewton::Create(
+        nh, this->hectorDrawings, this->debugInfoProvider);
+      return this->mFPGAScanMatcher != nullptr &&
+             this->mGaussNewtonScanMatcher != nullptr;
+  }
+
+  return false;
+}
+
+Eigen::Vector3f HectorMappingRos::scanMatchCallback(
+  const Eigen::Vector3f& initialWorldPose,
+  GridMapUtil& gridMapUtil,
+  const hectorslam::DataContainer& dataContainer,
+  Eigen::Matrix3f& covMatrix, const int mapIndex)
+{
+  switch (this->mScanMatcherOption) {
+    case ScanMatcherOption::Default: {
+      ROS_ASSERT(this->mDefaultScanMatcher != nullptr);
+      const int maxIterations = mapIndex == 0 ? 5 : 3;
+      return this->mDefaultScanMatcher->matchData(
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix, maxIterations);
+    }
+
+    case ScanMatcherOption::GaussNewton: {
+      ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
+      const bool fineMatching = mapIndex == 0;
+      return this->mGaussNewtonScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+    }
+
+    case ScanMatcherOption::Correlative: {
+      ROS_ASSERT(this->mCorrelativeScanMatcher != nullptr);
+      return this->mCorrelativeScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+    }
+
+    case ScanMatcherOption::CorrelativeFPGA: {
+      ROS_ASSERT(this->mFPGAScanMatcher != nullptr);
+      return this->mFPGAScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+    }
+
+    case ScanMatcherOption::GaussNewtonAfterCorrelative: {
+      ROS_ASSERT(this->mCorrelativeScanMatcher != nullptr);
+      ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
+      const bool fineMatching = mapIndex == 0;
+      const Eigen::Vector3f estimatedPose =
+        this->mCorrelativeScanMatcher->MatchScans(
+          initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+      return this->mGaussNewtonScanMatcher->MatchScans(
+        estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+    }
+
+    case ScanMatcherOption::GaussNewtonAfterCorrelativeFPGA: {
+      ROS_ASSERT(this->mFPGAScanMatcher != nullptr);
+      ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
+      const bool fineMatching = mapIndex == 0;
+      const Eigen::Vector3f estimatedPose =
+        this->mFPGAScanMatcher->MatchScans(
+          initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+      return this->mGaussNewtonScanMatcher->MatchScans(
+        estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+    }
+  }
+
+  return initialWorldPose;
 }
 
 void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)

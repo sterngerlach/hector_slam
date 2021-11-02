@@ -75,6 +75,14 @@ public:
   HectorMappingRos();
   ~HectorMappingRos();
 
+  bool setupFPGA(ros::NodeHandle& nh);
+  bool initializeScanMatcher(ros::NodeHandle& nh);
+
+  Eigen::Vector3f scanMatchCallback(
+    const Eigen::Vector3f& initialWorldPose,
+    hectorslam::GridMapUtil& gridMapUtil,
+    const hectorslam::DataContainer& dataContainer,
+    Eigen::Matrix3f& covMatrix, const int mapIndex);
 
   void scanCallback(const sensor_msgs::LaserScan& scan);
   void sysMsgCallback(const std_msgs::String& string);
@@ -145,7 +153,7 @@ protected:
   hectorslam::HectorSlamProcessor* slamProcessor;
   hectorslam::DataContainer laserScanContainer;
 
-  hectorslam::ScanMatcherOptions mScanMatcherOptions;
+  hectorslam::ScanMatcherOption mScanMatcherOption;
   std::unique_ptr<hectorslam::DefaultScanMatcher> mDefaultScanMatcher;
   std::unique_ptr<hectorslam::ScanMatcherCorrelative> mCorrelativeScanMatcher;
   std::unique_ptr<hectorslam::ScanMatcherFPGA> mFPGAScanMatcher;
