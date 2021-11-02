@@ -380,13 +380,15 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
     case ScanMatcherOption::Correlative: {
       ROS_ASSERT(this->mCorrelativeScanMatcher != nullptr);
       return this->mCorrelativeScanMatcher->MatchScans(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix,
+        true, 0.0f, 0.0f);
     }
 
     case ScanMatcherOption::CorrelativeFPGA: {
       ROS_ASSERT(this->mFPGAScanMatcher != nullptr);
       return this->mFPGAScanMatcher->MatchScans(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+        initialWorldPose, gridMapUtil, dataContainer, covMatrix,
+        true, 0.0f, 0.0f);
     }
 
     case ScanMatcherOption::GaussNewtonAfterCorrelative: {
@@ -395,7 +397,8 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
       const bool fineMatching = mapIndex == 0;
       const Eigen::Vector3f estimatedPose =
         this->mCorrelativeScanMatcher->MatchScans(
-          initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+          initialWorldPose, gridMapUtil, dataContainer, covMatrix,
+          false, 0.0f, 0.0f);
       return this->mGaussNewtonScanMatcher->MatchScans(
         estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
     }
@@ -406,7 +409,8 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
       const bool fineMatching = mapIndex == 0;
       const Eigen::Vector3f estimatedPose =
         this->mFPGAScanMatcher->MatchScans(
-          initialWorldPose, gridMapUtil, dataContainer, covMatrix, 0.0f, 0.0f);
+          initialWorldPose, gridMapUtil, dataContainer, covMatrix,
+          false, 0.0f, 0.0f);
       return this->mGaussNewtonScanMatcher->MatchScans(
         estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
     }
