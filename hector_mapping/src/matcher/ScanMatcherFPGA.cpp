@@ -4,8 +4,133 @@
 #include "matcher/ScanMatcherFPGA.hpp"
 #include "util/Assert.hpp"
 #include "util/DataConversion.hpp"
+#include "util/Parameter.hpp"
+
+#define RETURN_FALSE_IF_FAILED(call) if (!(call)) return false;
+#define RETURN_NULLPTR_IF_FAILED(call) if (!(call)) return nullptr;
 
 namespace hectorslam {
+
+// Load the members from the given ros::NodeHandle
+bool ScanMatcherIPConfig::FromNodeHandle(
+  ros::NodeHandle& nh, ScanMatcherIPConfig& ipConfig)
+{
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "num_of_scans_max", ipConfig.mNumOfScansMax))
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "map_size_x_max", ipConfig.mMapSizeXMax))
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "map_size_y_max", ipConfig.mMapSizeYMax))
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "coarse_map_resolution", ipConfig.mCoarseMapResolution))
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "bits_per_value", ipConfig.mBitsPerValue))
+  RETURN_FALSE_IF_FAILED(GetParamFromNodeHandle(
+    nh, "grid_cells_per_chunk", ipConfig.mGridCellsPerChunk))
+
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_base_address", ipConfig.mAxiLiteSBaseAddress))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_address_range", ipConfig.mAxiLiteSAddressRange))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_ap_ctrl", ipConfig.mAxiLiteSApCtrl))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_gie", ipConfig.mAxiLiteSGIE))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_ier", ipConfig.mAxiLiteSIER))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_isr", ipConfig.mAxiLiteSISR))
+
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_num_of_scans", ipConfig.mAxiLiteSNumOfScans))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_scan_range_max", ipConfig.mAxiLiteSScanRangeMax))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_score_threshold", ipConfig.mAxiLiteSScoreThreshold))
+
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_pose_x", ipConfig.mAxiLiteSPoseX))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_pose_y", ipConfig.mAxiLiteSPoseY))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_pose_theta", ipConfig.mAxiLiteSPoseTheta))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_map_size_x", ipConfig.mAxiLiteSMapSizeX))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_map_size_y", ipConfig.mAxiLiteSMapSizeY))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_map_min_x", ipConfig.mAxiLiteSMapMinX))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_map_min_y", ipConfig.mAxiLiteSMapMinY))
+
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_win_x", ipConfig.mAxiLiteSWinX))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_win_y", ipConfig.mAxiLiteSWinY))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_win_theta", ipConfig.mAxiLiteSWinTheta))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_step_x", ipConfig.mAxiLiteSStepX))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_step_y", ipConfig.mAxiLiteSStepY))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "axi_lite_s_step_theta", ipConfig.mAxiLiteSStepTheta))
+
+  return true;
+}
+
+// Load the members from the given ros::NodeHandle
+bool AxiDmaConfig::FromNodeHandle(
+  ros::NodeHandle& nh, AxiDmaConfig& axiDmaConfig)
+{
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "base_address", axiDmaConfig.mBaseAddress))
+  RETURN_FALSE_IF_FAILED(GetAddressFromNodeHandle(
+    nh, "address_range", axiDmaConfig.mAddressRange))
+
+  return true;
+}
+
+// Load the configuration settings and create a new instance
+std::unique_ptr<ScanMatcherFPGA> ScanMatcherFPGA::Create(
+  ros::NodeHandle& nh,
+  DrawInterface* pDrawInterface,
+  HectorDebugInfoInterface* pDebugInterface)
+{
+  ros::NodeHandle nhScanMatcher { nh, "scan_matcher_fpga" };
+  ros::NodeHandle nhIPConfig { nhScanMatcher, "ip_config" };
+  ros::NodeHandle nhAxiDmaConfig { nhScanMatcher, "axi_dma_config" };
+
+  int coarseMapResolution;
+  Eigen::Vector3f searchWindow;
+  float angleSearchStepMin;
+  float angleSearchStepMax;
+  ScanMatcherIPConfig ipConfig;
+  AxiDmaConfig axiDmaConfig;
+
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "coarse_map_resolution", coarseMapResolution))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_x", searchWindow[0]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_y", searchWindow[1]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "search_window_theta", searchWindow[2]))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "angle_search_step_min", angleSearchStepMin))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "angle_search_step_max", angleSearchStepMax))
+
+  RETURN_NULLPTR_IF_FAILED(
+    ScanMatcherIPConfig::FromNodeHandle(nhIPConfig, ipConfig))
+  RETURN_NULLPTR_IF_FAILED(
+    AxiDmaConfig::FromNodeHandle(nhAxiDmaConfig, axiDmaConfig));
+
+  return std::make_unique<ScanMatcherFPGA>(
+    coarseMapResolution, searchWindow,
+    angleSearchStepMin, angleSearchStepMax,
+    ipConfig, axiDmaConfig, pDrawInterface, pDebugInterface);
+}
 
 // Constructor
 ScanMatcherFPGA::ScanMatcherFPGA(

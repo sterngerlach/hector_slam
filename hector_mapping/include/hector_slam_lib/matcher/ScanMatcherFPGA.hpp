@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <Eigen/Core>
+#include <ros/node_handle.h>
 
 #include "hw/ap_ctrl.hpp"
 #include "hw/axi_simple_dma.hpp"
@@ -28,6 +29,10 @@ namespace hectorslam {
 //
 struct ScanMatcherIPConfig
 {
+  // Load the members from the given ros::NodeHandle
+  static bool FromNodeHandle(
+    ros::NodeHandle& nh, ScanMatcherIPConfig& ipConfig);
+
   // Maximum number of the scan points
   int mNumOfScansMax;
   // Maximum width of the grid map (in the number of grid cells)
@@ -90,6 +95,10 @@ struct ScanMatcherIPConfig
 // 
 struct AxiDmaConfig
 {
+  // Load the members from the given ros::NodeHandle
+  static bool FromNodeHandle(
+    ros::NodeHandle& nh, AxiDmaConfig& axiDmaConfig);
+
   // AXI DMA base address
   std::uint32_t mBaseAddress;
   // AXI DMA address range
@@ -127,6 +136,12 @@ struct ScanMatcherIPRegisters
 class ScanMatcherFPGA final
 {
 public:
+  // Load the configuration settings and create a new instance
+  static std::unique_ptr<ScanMatcherFPGA> Create(
+    ros::NodeHandle& nh,
+    DrawInterface* pDrawInterface = nullptr,
+    HectorDebugInfoInterface* pDebugInterface = nullptr);
+
   // Constructor
   ScanMatcherFPGA(const int coarseMapResolution,
                   const Eigen::Vector3f& searchWindow,
