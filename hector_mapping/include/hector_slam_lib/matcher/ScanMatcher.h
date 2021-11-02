@@ -29,7 +29,10 @@
 #ifndef _scanmatcher_h__
 #define _scanmatcher_h__
 
+#include <memory>
 #include <Eigen/Geometry>
+#include <ros/node_handle.h>
+
 #include "../scan/DataPointContainer.h"
 #include "../util/UtilFunctions.h"
 
@@ -50,6 +53,15 @@ public:
 
   ~ScanMatcher()
   {}
+
+  // Load the configuration settings and create a new instance
+  static std::unique_ptr<ScanMatcher> Create(
+    ros::NodeHandle& nh,
+    DrawInterface* pDrawInterface = nullptr,
+    HectorDebugInfoInterface* pDebugInterface = nullptr)
+  {
+    return std::make_unique<ScanMatcher>(pDrawInterface, pDebugInterface);
+  }
 
   Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, ConcreteOccGridMapUtil& gridMapUtil, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix, int maxIterations)
   {
