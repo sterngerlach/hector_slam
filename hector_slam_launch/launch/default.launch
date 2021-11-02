@@ -1,0 +1,232 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="geotiff_map_file_path" default="$(find hector_geotiff)/maps" />
+  <arg name="rviz" default="true" />
+
+  <!-- Settings taken from mapping_default.launch -->
+  <arg name="tf_map_scanmatch_transform_frame_name" default="scanmatcher_frame" />
+  <arg name="base_frame" default="base_footprint" />
+  <arg name="odom_frame" default="odom" />
+  <arg name="pub_map_odom_transform" default="true" />
+  <arg name="scan_subscriber_queue_size" default="5" />
+  <arg name="scan_topic" default="/horizontal_laser_2d" />
+  <arg name="map_size" default="2048" />
+
+  <!-- Settings taken from geotiff_mapper.launch -->
+  <arg name="trajectory_source_frame_name" default="scanmatcher_frame" />
+  <arg name="trajectory_update_rate" default="4" />
+  <arg name="trajectory_publish_rate" default="0.25" />
+  <arg name="map_file_path" default="$(arg geotiff_map_file_path)" />
+  <arg name="map_file_base_name" default="hector_slam_map" />
+
+  <param name="/use_sim_time" value="true" />
+
+  <node pkg="hector_mapping" type="hector_mapping"
+        name="hector_mapping" output="screen">
+    <!-- Frame names -->
+    <param name="map_frame" value="map" />
+    <param name="base_frame" value="$(arg base_frame)" />
+    <param name="odom_frame" value="$(arg odom_frame)" />
+
+    <!-- Tf use -->
+    <param name="use_tf_scan_transformation" value="true" />
+    <param name="use_tf_pose_start_estimate" value="false" />
+    <param name="map_with_known_poses" value="false" />
+    <param name="pub_map_odom_transform" value="$(arg pub_map_odom_transform)" />
+    <param name="pub_odometry" value="false" />
+
+    <!-- Map size / start point -->
+    <param name="map_resolution" value="0.05" />
+    <param name="map_size" value="$(arg map_size)" />
+    <param name="map_start_x" value="0.5" />
+    <param name="map_start_y" value="0.5" />
+    <!-- <param name="map_multi_res_levels" value="2" /> -->
+    <param name="map_multi_res_levels" value="1" />
+
+    <!-- Map update parameters -->
+    <param name="update_factor_free" value="0.4" />
+    <param name="update_factor_occupied" value="0.9" />    
+    <param name="map_update_distance_thresh" value="0.4" />
+    <param name="map_update_angle_thresh" value="0.06" />
+    <param name="laser_min_dist" value="0.1" />
+    <param name="laser_max_dist" value="6.0" />
+    <param name="laser_z_min_value" value="-1.0" />
+    <param name="laser_z_max_value" value="1.0" />
+
+    <!-- Advertising config --> 
+    <param name="advertise_map_service" value="true" />
+
+    <param name="scan_subscriber_queue_size"
+           value="$(arg scan_subscriber_queue_size)" />
+    <param name="scan_topic" value="$(arg scan_topic)" />
+    <param name="sys_msg_topic" value="syscommand" />
+    <param name="pose_update_topic" value="poseupdate" />
+
+    <!-- Debug parameters -->
+    <!-- <param name="output_timing" value="false" /> -->
+    <!-- <param name="pub_drawings" value="true" /> -->
+    <!-- <param name="pub_debug_output" value="true" /> -->
+    <param name="pub_map_scanmatch_transform" value="true" />
+    <param name="tf_map_scanmatch_transform_frame_name"
+           value="$(arg tf_map_scanmatch_transform_frame_name)" />
+
+    <param name="map_pub_period" value="2.0" />
+
+    <param name="enable_fpga_acceleration" value="false" />
+    <!-- <param name="enable_fpga_acceleration" value="true" /> -->
+
+    <param name="bitstream_file_name"
+           value="/home/xilinx/scan-matcher-correlative-hw-2021-7-20/design0.bit" />
+
+    <!-- <param name="scan_matcher_option" value="GaussNewton" /> -->
+    <!-- <param name="scan_matcher_option" value="Correlative" /> -->
+    <!-- <param name="scan_matcher_option" value="GaussNewtonAfterCorrelative" /> -->
+    <!-- <param name="scan_matcher_option" value="CorrelativeFPGA" /> -->
+    <param name="scan_matcher_option" value="GaussNewtonAfterCorrelative" />
+    <!-- <param name="scan_matcher_option" value="GaussNewtonAfterCorrelativeFPGA" /> -->
+
+    <!-- Settings for ScanMatcherGaussNewton -->
+    <param name="scan_matcher_gauss_newton/angle_update_max"
+           value="0.2" />
+    <param name="scan_matcher_gauss_newton/num_of_iterations_fine"
+           value="5" />
+    <param name="scan_matcher_gauss_newton/num_of_iterations_coarse"
+           value="3" />
+
+    <!-- Settings for ScanMatcherCorrelative -->
+    <param name="scan_matcher_correlative/coarse_map_resolution"
+           value="5" />
+    <param name="scan_matcher_correlative/search_window_x"
+           value="0.25" />
+    <param name="scan_matcher_correlative/search_window_y"
+           value="0.25" />
+    <param name="scan_matcher_correlative/search_window_theta"
+           value="0.25" />
+    <param name="scan_matcher_correlative/angle_search_step_min"
+           value="0.0025" />
+    <param name="scan_matcher_correlative/angle_search_step_max"
+           value="0.01" />
+
+    <!-- Settings for ScanMatcherFPGA -->
+    <param name="scan_matcher_fpga/coarse_map_resolution"
+           value="8" />
+    <param name="scan_matcher_fpga/search_window_x"
+           value="0.25" />
+    <param name="scan_matcher_fpga/search_window_y"
+           value="0.25" />
+    <param name="scan_matcher_fpga/search_window_theta"
+           value="0.25" />
+    <param name="scan_matcher_fpga/angle_search_step_min"
+           value="0.0025" />
+    <param name="scan_matcher_fpga/angle_search_step_max"
+           value="0.01" />
+
+    <param name="scan_matcher_fpga/ip_config/num_of_scans_max"
+           value="512" />
+    <param name="scan_matcher_fpga/ip_config/map_size_x_max"
+           value="320" />
+    <param name="scan_matcher_fpga/ip_config/map_size_y_max"
+           value="320" />
+    <param name="scan_matcher_fpga/ip_config/coarse_map_resolution"
+           value="8" />
+    <param name="scan_matcher_fpga/ip_config/bits_per_value"
+           value="6" />
+    <param name="scan_matcher_fpga/ip_config/grid_cells_per_chunk"
+           value="8" />
+
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_base_address"
+           value="0x43C00000" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_address_range"
+           value="0x10000" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_ap_ctrl"
+           value="0x00" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_gie"
+           value="0x04" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_ier"
+           value="0x08" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_isr"
+           value="0x0C" />
+
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_num_of_scans"
+           value="0x10" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_scan_range_max"
+           value="0x18" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_score_threshold"
+           value="0x20" />
+
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_pose_x"
+           value="0x28" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_pose_y"
+           value="0x30" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_pose_theta"
+           value="0x38" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_map_size_x"
+           value="0x40" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_map_size_y"
+           value="0x48" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_map_min_x"
+           value="0x50" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_map_min_y"
+           value="0x58" />
+
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_win_x"
+           value="0x60" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_win_y"
+           value="0x68" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_win_theta"
+           value="0x70" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_step_x"
+           value="0x78" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_step_y"
+           value="0x80" />
+    <param name="scan_matcher_fpga/ip_config/axi_lite_s_step_theta"
+           value="0x88" />
+
+    <param name="scan_matcher_fpga/axi_dma_config/base_address"
+           value="0x40400000" />
+    <param name="scan_matcher_fpga/axi_dma_config/address_range"
+           value="0x10000" />
+  </node>
+
+  <node pkg="tf" type="static_transform_publisher"
+        name="odom_to_base_footprint"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 odom base_footprint 30" />
+  <node pkg="tf" type="static_transform_publisher"
+        name="base_footprint_to_base_link"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 base_footprint base_link 30" />
+  <node pkg="tf" type="static_transform_publisher"
+        name="base_link_to_laser"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 base_link horizontal_laser_link 30" />
+
+  <!-- Settings taken from geotiff_mapper.launch -->
+  <node pkg="hector_trajectory_server" type="hector_trajectory_server"
+        name="hector_trajectory_server" output="screen">
+    <param name="target_frame_name" type="string" value="/map" />
+    <param name="source_frame_name" type="string"
+           value="$(arg trajectory_source_frame_name)" />
+    <param name="trajectory_update_rate" type="double"
+           value="$(arg trajectory_update_rate)" />
+    <param name="trajectory_publish_rate" type="double"
+           value="$(arg trajectory_publish_rate)" />
+  </node>
+
+  <!-- Settings taken from geotiff_mapper.launch -->
+  <node pkg="hector_geotiff" type="geotiff_node" name="hector_geotiff_node"
+        output="screen" launch-prefix="nice -n 15">
+    <remap from="map" to="/dynamic_map" />
+    <param name="map_file_path" type="string" value="$(arg map_file_path)" />
+    <param name="map_file_base_name" type="string"
+           value="$(arg map_file_base_name)" />
+    <param name="geotiff_save_period" type="double" value="0" />
+    <param name="draw_background_checkerboard" type="bool" value="true" />
+    <param name="draw_free_space_grid" type="bool" value="true" />
+    <param name="plugins" type="string"
+           value="hector_geotiff_plugins/TrajectoryMapWriter" />
+  </node>
+
+  <group if="$(arg rviz)">
+    <node pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find hector_slam_launch)/rviz_cfg/mapping_demo.rviz" />
+  </group>
+</launch>
