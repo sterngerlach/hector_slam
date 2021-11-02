@@ -161,6 +161,7 @@ public:
     OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
     Eigen::Matrix3f& covMatrix,
+    const bool computeCovariance,
     const float scoreMin = 0.0f,
     const float correspondenceRatioMin = 0.0f);
 

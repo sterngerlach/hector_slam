@@ -199,6 +199,7 @@ Eigen::Vector3f ScanMatcherFPGA::MatchScans(
   OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const DataContainer& dataContainer,
   Eigen::Matrix3f& covMatrix,
+  const bool computeCovariance,
   const float scoreMin, const float correspondenceRatioMin)
 {
   if (dataContainer.getSize() <= 0)
@@ -294,13 +295,17 @@ Eigen::Vector3f ScanMatcherFPGA::MatchScans(
     mapPoseMin.array() + step.array() * bestEstimate.cast<float>().array();
   const Eigen::Vector3f bestWorldPose =
     gridMapUtil.getWorldCoordsPose(bestMapPose);
-  // Compute the covariance matrix (in the world coordinate frame)
-  const Eigen::Matrix3f covMatrixMap =
-    gridMapUtil.getCovarianceForPose(bestMapPose, dataContainer);
-  const Eigen::Matrix3f covMatrixWorld =
-    gridMapUtil.getCovMatrixWorldCoords(covMatrixMap);
-  // Set the covariance matrix (in the map coordinate frame)
-  covMatrix = covMatrixMap;
+
+  // Compute the pose covariance only if necessary
+  if (computeCovariance) {
+    // Compute the covariance matrix (in the world coordinate frame)
+    const Eigen::Matrix3f covMatrixMap =
+      gridMapUtil.getCovarianceForPose(bestMapPose, dataContainer);
+    const Eigen::Matrix3f covMatrixWorld =
+      gridMapUtil.getCovMatrixWorldCoords(covMatrixMap);
+    // Set the covariance matrix (in the map coordinate frame)
+    covMatrix = covMatrixMap;
+  }
 
   return bestWorldPose;
 }
