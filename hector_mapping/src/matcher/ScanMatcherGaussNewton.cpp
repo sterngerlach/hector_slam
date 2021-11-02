@@ -3,16 +3,47 @@
 
 #include "matcher/ScanMatcherGaussNewton.hpp"
 #include "util/Assert.hpp"
+#include "util/Parameter.hpp"
 #include "util/UtilFunctions.h"
 
+#define RETURN_NULLPTR_IF_FAILED(call) if (!(call)) return nullptr;
+
 namespace hectorslam {
+
+// Load the configuration settings and create a new instance
+std::unique_ptr<ScanMatcherGaussNewton> ScanMatcherGaussNewton::Create(
+  ros::NodeHandle& nh,
+  DrawInterface* pDrawInterface,
+  HectorDebugInfoInterface* pDebugInterface)
+{
+  ros::NodeHandle nhScanMatcher { nh, "scan_matcher_gauss_newton" };
+
+  float angleUpdateMax;
+  int numOfIterationsFine;
+  int numOfIterationsCoarse;
+
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "angle_update_max", angleUpdateMax));
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "num_of_iterations_fine", numOfIterationsFine))
+  RETURN_NULLPTR_IF_FAILED(GetParamFromNodeHandle(
+    nhScanMatcher, "num_of_iterations_coarse", numOfIterationsCoarse))
+
+  return std::make_unique<ScanMatcherGaussNewton>(
+    angleUpdateMax, numOfIterationsFine, numOfIterationsCoarse,
+    pDrawInterface, pDebugInterface);
+}
 
 // Constructor
 ScanMatcherGaussNewton::ScanMatcherGaussNewton(
   const float angleUpdateMax,
+  const int numOfIterationsFine,
+  const int numOfIterationsCoarse,
   DrawInterface* pDrawInterface,
   HectorDebugInfoInterface* pDebugInterface) :
   mAngleUpdateMax(angleUpdateMax),
+  mNumOfIterationsFine(numOfIterationsFine),
+  mNumOfIterationsCoarse(numOfIterationsCoarse),
   mDrawInterface(pDrawInterface),
   mDebugInterface(pDebugInterface)
 {
@@ -24,11 +55,14 @@ Eigen::Vector3f ScanMatcherGaussNewton::MatchScans(
   OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const DataContainer& dataContainer,
   Eigen::Matrix3f& covMatrix,
-  const int maxIterations)
+  const bool fineMatching)
 {
   if (dataContainer.getSize() <= 0)
     return initialWorldPose;
 
+  // Number of the iterations
+  const int maxIterations = fineMatching ?
+    this->mNumOfIterationsFine : this->mNumOfIterationsCoarse;
   // Compute the pose in the map coordinate frame
   const Eigen::Vector3f initialMapPose =
     gridMapUtil.getMapCoordsPose(initialWorldPose);

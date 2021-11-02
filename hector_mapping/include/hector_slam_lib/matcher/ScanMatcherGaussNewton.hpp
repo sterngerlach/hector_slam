@@ -4,7 +4,9 @@
 #ifndef HECTOR_SLAM_MATCHER_SCAN_MATCHER_GAUSS_NEWTON_HPP
 #define HECTOR_SLAM_MATCHER_SCAN_MATCHER_GAUSS_NEWTON_HPP
 
+#include <memory>
 #include <Eigen/Core>
+#include <ros/node_handle.h>
 
 #include "map/GridMap.h"
 #include "map/OccGridMapUtilConfig.h"
@@ -25,8 +27,16 @@ namespace hectorslam {
 class ScanMatcherGaussNewton final
 {
 public:
+  // Load the configuration settings and create a new instance
+  static std::unique_ptr<ScanMatcherGaussNewton> Create(
+    ros::NodeHandle& nh,
+    DrawInterface* pDrawInterface = nullptr,
+    HectorDebugInfoInterface* pDebugInterface = nullptr);
+
   // Constructor
   ScanMatcherGaussNewton(const float angleUpdateMax,
+                         const int numOfIterationsFine,
+                         const int numOfIterationsCoarse,
                          DrawInterface* pDrawInterface = nullptr,
                          HectorDebugInfoInterface* pDebugInterface = nullptr);
 
@@ -39,11 +49,15 @@ public:
     OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
     Eigen::Matrix3f& covMatrix,
-    const int maxIterations);
+    const bool fineMatching);
 
 private:
   // Maximum angle update in single Gauss-Newton iteration
   float mAngleUpdateMax;
+  // Number of the iterations for fine matching
+  int mNumOfIterationsFine;
+  // Number of the iterations for coarse matching
+  int mNumOfIterationsCoarse;
   // Draw interface (for visualization in RViz)
   DrawInterface* mDrawInterface;
   // Debug information interface (for inspecting covariance matrices)
