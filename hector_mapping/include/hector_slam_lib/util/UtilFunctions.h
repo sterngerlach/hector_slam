@@ -36,6 +36,17 @@
 
 namespace util {
 
+inline float NormalizeAngleDifference(float angleDiff)
+{
+  return std::fmod(angleDiff + M_PI_2, 2.0f * M_PI) - M_PI_2;
+}
+
+inline float NormalizeAngleDifference(float angle0, float angle1)
+{
+  const float angleDiff = angle0 - angle1;
+  return std::fmod(angleDiff + M_PI_2, 2.0f * M_PI) - M_PI_2;
+}
+
 static inline float normalize_angle_pos(float angle)
 {
   return std::fmod(std::fmod(angle, 2.0f * M_PI) + 2.0f * M_PI, 2.0f * M_PI);
