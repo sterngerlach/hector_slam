@@ -42,12 +42,14 @@
 #include "hw/bitstream_loader.hpp"
 #include "hw/cma_manager.hpp"
 #include "util/Parameter.hpp"
+#include "util/Timer.hpp"
 
 #ifndef TF_SCALAR_H
   typedef btScalar tfScalar;
 #endif
 
 using namespace hectorslam;
+using namespace hector_mapping;
 
 HectorMappingRos::HectorMappingRos() :
   debugInfoProvider(nullptr),
@@ -136,6 +138,10 @@ HectorMappingRos::HectorMappingRos() :
   {
     odometryPublisher_ = node_.advertise<nav_msgs::Odometry>("scanmatch_odom", 50);
   }
+
+  // Create a publisher to publish the metrics information
+  this->mMetricsPublisher = this->node_.advertise<
+    hector_mapping::HectorMappingMetrics>("metrics", 10);
 
   // Initialize CMA manager and load bitstream for FPGA acceleration
   if (!this->setupFPGA(private_nh_))
@@ -367,52 +373,114 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
       ROS_ASSERT(this->mDefaultScanMatcher != nullptr);
       const int maxIterations = mapIndex == 0 ? 5 : 3;
       return this->mDefaultScanMatcher->matchData(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix, maxIterations);
+        initialWorldPose, gridMapUtil, dataContainer,
+        covMatrix, maxIterations);
     }
 
     case ScanMatcherOption::GaussNewton: {
       ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
       const bool fineMatching = mapIndex == 0;
-      return this->mGaussNewtonScanMatcher->MatchScans(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+      ScanMatcherGaussNewtonMetrics metrics;
+
+      metrics.stamp = ros::WallTime::now().toNSec();
+      metrics.map_resolution_level = mapIndex;
+      const Eigen::Vector3f estimatedPose =
+        this->mGaussNewtonScanMatcher->MatchScans(
+          initialWorldPose, gridMapUtil, dataContainer,
+          fineMatching, &covMatrix, &metrics);
+      this->mMetricsMsg.scan_matcher_gauss_newton_metrics.push_back(metrics);
+
+      return estimatedPose;
     }
 
     case ScanMatcherOption::Correlative: {
       ROS_ASSERT(this->mCorrelativeScanMatcher != nullptr);
-      return this->mCorrelativeScanMatcher->MatchScans(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix,
-        true, 0.0f, 0.0f);
+      const float scoreMin = 0.0f;
+      const float correspondenceRatioMin = 0.0f;
+      ScanMatcherCorrelativeMetrics metrics;
+
+      metrics.stamp = ros::WallTime::now().toNSec();
+      metrics.map_resolution_level = mapIndex;
+      const Eigen::Vector3f estimatedPose =
+        this->mCorrelativeScanMatcher->MatchScans(
+          initialWorldPose, gridMapUtil, dataContainer,
+          scoreMin, correspondenceRatioMin, &covMatrix, &metrics);
+      this->mMetricsMsg.scan_matcher_correlative_metrics.push_back(metrics);
+
+      return estimatedPose;
     }
 
     case ScanMatcherOption::CorrelativeFPGA: {
       ROS_ASSERT(this->mFPGAScanMatcher != nullptr);
-      return this->mFPGAScanMatcher->MatchScans(
-        initialWorldPose, gridMapUtil, dataContainer, covMatrix,
-        true, 0.0f, 0.0f);
+      const float scoreMin = 0.0f;
+      const float correspondenceRatioMin = 0.0f;
+      ScanMatcherFPGAMetrics metrics;
+
+      metrics.stamp = ros::WallTime::now().toNSec();
+      metrics.map_resolution_level = mapIndex;
+      const Eigen::Vector3f estimatedPose = this->mFPGAScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer,
+        scoreMin, correspondenceRatioMin, &covMatrix, &metrics);
+      this->mMetricsMsg.scan_matcher_fpga_metrics.push_back(metrics);
+
+      return estimatedPose;
     }
 
     case ScanMatcherOption::GaussNewtonAfterCorrelative: {
       ROS_ASSERT(this->mCorrelativeScanMatcher != nullptr);
       ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
       const bool fineMatching = mapIndex == 0;
-      const Eigen::Vector3f estimatedPose =
-        this->mCorrelativeScanMatcher->MatchScans(
-          initialWorldPose, gridMapUtil, dataContainer, covMatrix,
-          false, 0.0f, 0.0f);
-      return this->mGaussNewtonScanMatcher->MatchScans(
-        estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+      const float scoreMin = 0.0f;
+      const float correspondenceRatioMin = 0.0f;
+      ScanMatcherCorrelativeMetrics correlativeMetrics;
+      ScanMatcherGaussNewtonMetrics gaussNewtonMetrics;
+
+      correlativeMetrics.stamp = ros::WallTime::now().toNSec();
+      correlativeMetrics.map_resolution_level = mapIndex;
+      Eigen::Vector3f estimatedPose = this->mCorrelativeScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer,
+        scoreMin, correspondenceRatioMin, nullptr, &correlativeMetrics);
+
+      gaussNewtonMetrics.stamp = ros::WallTime::now().toNSec();
+      gaussNewtonMetrics.map_resolution_level = mapIndex;
+      estimatedPose = this->mGaussNewtonScanMatcher->MatchScans(
+        estimatedPose, gridMapUtil, dataContainer,
+        fineMatching, &covMatrix, &gaussNewtonMetrics);
+
+      this->mMetricsMsg.scan_matcher_correlative_metrics.push_back(
+        correlativeMetrics);
+      this->mMetricsMsg.scan_matcher_gauss_newton_metrics.push_back(
+        gaussNewtonMetrics);
+
+      return estimatedPose;
     }
 
     case ScanMatcherOption::GaussNewtonAfterCorrelativeFPGA: {
       ROS_ASSERT(this->mFPGAScanMatcher != nullptr);
       ROS_ASSERT(this->mGaussNewtonScanMatcher != nullptr);
       const bool fineMatching = mapIndex == 0;
-      const Eigen::Vector3f estimatedPose =
-        this->mFPGAScanMatcher->MatchScans(
-          initialWorldPose, gridMapUtil, dataContainer, covMatrix,
-          false, 0.0f, 0.0f);
-      return this->mGaussNewtonScanMatcher->MatchScans(
-        estimatedPose, gridMapUtil, dataContainer, covMatrix, fineMatching);
+      const float scoreMin = 0.0f;
+      const float correspondenceRatioMin = 0.0f;
+      ScanMatcherFPGAMetrics fpgaMetrics;
+      ScanMatcherGaussNewtonMetrics gaussNewtonMetrics;
+
+      fpgaMetrics.stamp = ros::WallTime::now().toNSec();
+      fpgaMetrics.map_resolution_level = mapIndex;
+      Eigen::Vector3f estimatedPose = this->mFPGAScanMatcher->MatchScans(
+        initialWorldPose, gridMapUtil, dataContainer,
+        scoreMin, correspondenceRatioMin, nullptr, &fpgaMetrics);
+
+      gaussNewtonMetrics.stamp = ros::WallTime::now().toNSec();
+      gaussNewtonMetrics.map_resolution_level = mapIndex;
+      estimatedPose = this->mGaussNewtonScanMatcher->MatchScans(
+        estimatedPose, gridMapUtil, dataContainer,
+        fineMatching, &covMatrix, &gaussNewtonMetrics);
+
+      this->mMetricsMsg.scan_matcher_fpga_metrics.push_back(fpgaMetrics);
+      this->mMetricsMsg.scan_matcher_gauss_newton_metrics.push_back(
+        gaussNewtonMetrics);
+
+      return estimatedPose;
     }
   }
 
@@ -421,153 +489,183 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
 
 void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
 {
-  if (pause_scan_processing_)
-  {
+  if (this->pause_scan_processing_)
     return;
-  }
+
+  // Initialize the metrics information
+  this->mMetricsMsg = hector_mapping::HectorMappingMetrics();
+  // Measure the time for processing the current frame (scan)
+  Timer outerTimer;
 
   if (++this->mNumOfProcessedScans % 10 == 0)
     ROS_INFO("Processing the frame: %d", this->mNumOfProcessedScans);
 
-  if (hectorDrawings)
-  {
-    hectorDrawings->setTime(scan.header.stamp);
-  }
+  if (this->hectorDrawings != nullptr)
+    this->hectorDrawings->setTime(scan.header.stamp);
 
   ros::WallTime start_time = ros::WallTime::now();
-  if (!p_use_tf_scan_transformation_)
-  {
-    // If we are not using the tf tree to find the transform between the base frame and laser frame,
-    // then just convert the laser scan to our data container and process the update based on our last
-    // pose estimate
-    this->rosLaserScanToDataContainer(scan, laserScanContainer, slamProcessor->getScaleToMap());
-    slamProcessor->update(laserScanContainer, slamProcessor->getLastScanMatchPose());
-  }
-  else
-  {
-    // If we are using the tf tree to find the transform between the base frame and laser frame,
-    // let's get that transform
-    const ros::Duration dur(0.5);
+
+  if (!this->p_use_tf_scan_transformation_) {
+    // Measure the time for preprocessing the current scan
+    Timer timer;
+    // If we are not using the tf tree to find the transform between the
+    // base frame and laser frame, then just convert the laser scan to our data
+    // container and process the update based on our last pose estimate
+    hectorslam::DataContainer scanContainer;
+    this->rosLaserScanToDataContainer(scan, scanContainer,
+      this->slamProcessor->getScaleToMap());
+    this->mMetricsMsg.scan_preprocessing_time.fromNSec(
+      timer.ElapsedNanoseconds());
+
+    this->slamProcessor->update(scanContainer,
+      this->slamProcessor->getLastScanMatchPose(), &this->mMetricsMsg);
+  } else {
+    // If we are using the tf tree to find the transform between the
+    // base frame and laser frame, let's get that transform
     tf::StampedTransform laser_transform;
-    if (tf_.waitForTransform(p_base_frame_, scan.header.frame_id, scan.header.stamp, dur))
-    {
-      tf_.lookupTransform(p_base_frame_, scan.header.frame_id, scan.header.stamp, laser_transform);
-    }
-    else
-    {
-      ROS_INFO("lookupTransform %s to %s timed out. Could not transform laser scan into base_frame.", p_base_frame_.c_str(), scan.header.frame_id.c_str());
+    if (this->tf_.waitForTransform(this->p_base_frame_, scan.header.frame_id,
+        scan.header.stamp, ros::Duration(0.5))) {
+      this->tf_.lookupTransform(this->p_base_frame_, scan.header.frame_id,
+        scan.header.stamp, laser_transform);
+    } else {
+      ROS_INFO("lookupTransform %s to %s timed out. "
+               "Could not transform laser scan into base_frame.",
+               this->p_base_frame_.c_str(), scan.header.frame_id.c_str());
       return;
     }
 
+    // Measure the time for preprocessing the current scan
+    Timer timer;
+
     // Convert the laser scan to point cloud
-    projector_.projectLaser(scan, laser_point_cloud_, 30.0);
+    this->projector_.projectLaser(scan, this->laser_point_cloud_, 30.0);
 
     // Publish the point cloud if there are any subscribers
-    if (scan_point_cloud_publisher_.getNumSubscribers() > 0)
-    {
-      scan_point_cloud_publisher_.publish(laser_point_cloud_);
-    }
+    if (this->scan_point_cloud_publisher_.getNumSubscribers() > 0)
+      this->scan_point_cloud_publisher_.publish(this->laser_point_cloud_);
 
     // Convert the point cloud to our data container
-    this->rosPointCloudToDataContainer(laser_point_cloud_, laser_transform, laserScanContainer, slamProcessor->getScaleToMap());
+    hectorslam::DataContainer scanContainer;
+    this->rosPointCloudToDataContainer(
+      this->laser_point_cloud_, laser_transform, scanContainer,
+      this->slamProcessor->getScaleToMap());
+    this->mMetricsMsg.scan_preprocessing_time.fromNSec(
+      timer.ElapsedNanoseconds());
 
     // Now let's choose the initial pose estimate for our slam process update
-    Eigen::Vector3f start_estimate(Eigen::Vector3f::Zero());
-    if (initial_pose_set_)
-    {
+    Eigen::Vector3f start_estimate { Eigen::Vector3f::Zero() };
+    if (this->initial_pose_set_) {
       // User has requested a pose reset
-      initial_pose_set_ = false;
-      start_estimate = initial_pose_;
-    }
-    else if (p_use_tf_pose_start_estimate_)
-    {
+      this->initial_pose_set_ = false;
+      start_estimate = this->initial_pose_;
+    } else if (this->p_use_tf_pose_start_estimate_) {
       // Initial pose estimate comes from the tf tree
-      try
-      {
+      try {
         tf::StampedTransform stamped_pose;
 
-        tf_.waitForTransform(p_map_frame_, p_base_frame_, scan.header.stamp, ros::Duration(0.5));
-        tf_.lookupTransform(p_map_frame_, p_base_frame_,  scan.header.stamp, stamped_pose);
+        this->tf_.waitForTransform(this->p_map_frame_, this->p_base_frame_,
+          scan.header.stamp, ros::Duration(0.5));
+        this->tf_.lookupTransform(this->p_map_frame_, this->p_base_frame_,
+          scan.header.stamp, stamped_pose);
 
-        const double yaw = tf::getYaw(stamped_pose.getRotation());
-        start_estimate = Eigen::Vector3f(stamped_pose.getOrigin().getX(), stamped_pose.getOrigin().getY(), yaw);
+        start_estimate[0] = stamped_pose.getOrigin().getX();
+        start_estimate[1] = stamped_pose.getOrigin().getY();
+        start_estimate[2] = tf::getYaw(stamped_pose.getRotation());
+      } catch(tf::TransformException e) {
+        ROS_ERROR("Transform from %s to %s failed\n",
+                  this->p_map_frame_.c_str(), this->p_base_frame_.c_str());
+        start_estimate = this->slamProcessor->getLastScanMatchPose();
       }
-      catch(tf::TransformException e)
-      {
-        ROS_ERROR("Transform from %s to %s failed\n", p_map_frame_.c_str(), p_base_frame_.c_str());
-        start_estimate = slamProcessor->getLastScanMatchPose();
-      }
-    }
-    else
-    {
-      // If none of the above, the initial pose is simply the last estimated pose
-      start_estimate = slamProcessor->getLastScanMatchPose();
+    } else {
+      // If none of the above, initial pose is simply the last estimated pose
+      start_estimate = this->slamProcessor->getLastScanMatchPose();
     }
 
-    // If "p_map_with_known_poses_" is enabled, we assume that start_estimate is precise and doesn't need to be refined
-    if (p_map_with_known_poses_)
-    {
-      slamProcessor->update(laserScanContainer, start_estimate, true);
-    }
+    // If "p_map_with_known_poses_" is enabled, we assume that start_estimate
+    // is precise and doesn't need to be refined
+    if (this->p_map_with_known_poses_)
+      this->slamProcessor->update(scanContainer, start_estimate,
+        &this->mMetricsMsg, true);
     else
-    {
-      slamProcessor->update(laserScanContainer, start_estimate);
-    }
+      this->slamProcessor->update(scanContainer, start_estimate,
+        &this->mMetricsMsg);
   }
 
-  // If the debug flag "p_timing_output_" is enabled, print how long this last iteration took
-  if (p_timing_output_)
-  {
+  // If the debug flag "p_timing_output_" is enabled, print how long this last
+  // iteration took
+  if (this->p_timing_output_) {
     ros::WallDuration duration = ros::WallTime::now() - start_time;
-    ROS_INFO("HectorSLAM Iter took: %f milliseconds", duration.toSec()*1000.0f );
+    ROS_INFO("HectorSLAM Iter took: %f milliseconds",
+             duration.toSec() * 1000.0f);
   }
 
-  // If we're just building a map with known poses, we're finished now. Code below this point publishes the localization results.
-  if (p_map_with_known_poses_)
-  {
+  // If we're just building a map with known poses, we're finished now.
+  // Code below this point publishes the localization results.
+  if (this->p_map_with_known_poses_)
     return;
-  }
 
-  poseInfoContainer_.update(slamProcessor->getLastScanMatchPose(), slamProcessor->getLastScanMatchCovariance(), scan.header.stamp, p_map_frame_);
+  Timer timer;
+
+  this->poseInfoContainer_.update(
+    this->slamProcessor->getLastScanMatchPose(),
+    this->slamProcessor->getLastScanMatchCovariance(),
+    scan.header.stamp, this->p_map_frame_);
 
   // Publish pose with and without covariances
-  poseUpdatePublisher_.publish(poseInfoContainer_.getPoseWithCovarianceStamped());
-  posePublisher_.publish(poseInfoContainer_.getPoseStamped());
+  this->poseUpdatePublisher_.publish(
+    this->poseInfoContainer_.getPoseWithCovarianceStamped());
+  this->posePublisher_.publish(this->poseInfoContainer_.getPoseStamped());
 
   // Publish odometry if enabled
-  if(p_pub_odometry_)
-  {
-    nav_msgs::Odometry tmp;
-    tmp.pose = poseInfoContainer_.getPoseWithCovarianceStamped().pose;
-
-    tmp.header = poseInfoContainer_.getPoseWithCovarianceStamped().header;
-    tmp.child_frame_id = p_base_frame_;
-    odometryPublisher_.publish(tmp);
+  if (this->p_pub_odometry_) {
+    const auto& poseAndCovariance =
+      this->poseInfoContainer_.getPoseWithCovarianceStamped();
+    nav_msgs::Odometry odometry;
+    odometry.pose = poseAndCovariance.pose;
+    odometry.header = poseAndCovariance.header;
+    odometry.child_frame_id = this->p_base_frame_;
+    this->odometryPublisher_.publish(odometry);
   }
 
   // Publish the map->odom transform if enabled
-  if (p_pub_map_odom_transform_)
-  {
+  if (this->p_pub_map_odom_transform_) {
     tf::StampedTransform odom_to_base;
-    try
-    {
-      tf_.waitForTransform(p_odom_frame_, p_base_frame_, scan.header.stamp, ros::Duration(0.5));
-      tf_.lookupTransform(p_odom_frame_, p_base_frame_, scan.header.stamp, odom_to_base);
-    }
-    catch(tf::TransformException e)
-    {
-      ROS_ERROR("Transform failed during publishing of map_odom transform: %s",e.what());
+    try {
+      this->tf_.waitForTransform(this->p_odom_frame_, this->p_base_frame_,
+        scan.header.stamp, ros::Duration(0.5));
+      this->tf_.lookupTransform(this->p_odom_frame_, this->p_base_frame_,
+        scan.header.stamp, odom_to_base);
+    } catch (tf::TransformException e) {
+      ROS_ERROR("Transform failed during publishing of map_odom transform: %s",
+                e.what());
       odom_to_base.setIdentity();
     }
-    map_to_odom_ = tf::Transform(poseInfoContainer_.getTfTransform() * odom_to_base.inverse());
-    tfB_->sendTransform( tf::StampedTransform (map_to_odom_, scan.header.stamp, p_map_frame_, p_odom_frame_));
+
+    this->map_to_odom_ = this->poseInfoContainer_.getTfTransform()
+      * odom_to_base.inverse();
+    this->tfB_->sendTransform(tf::StampedTransform(
+      this->map_to_odom_, scan.header.stamp,
+      this->p_map_frame_, this->p_odom_frame_));
   }
 
   // Publish the transform from map to estimated pose (if enabled)
-  if (p_pub_map_scanmatch_transform_)
-  {
-    tfB_->sendTransform( tf::StampedTransform(poseInfoContainer_.getTfTransform(), scan.header.stamp, p_map_frame_, p_tf_map_scanmatch_transform_frame_name_));
-  }
+  if (this->p_pub_map_scanmatch_transform_)
+    this->tfB_->sendTransform(tf::StampedTransform(
+      this->poseInfoContainer_.getTfTransform(), scan.header.stamp,
+      this->p_map_frame_, this->p_tf_map_scanmatch_transform_frame_name_));
+
+  // Fill and publish the metrics information
+  this->mMetricsMsg.result_publish_time.fromNSec(timer.ElapsedNanoseconds());
+  this->mMetricsMsg.processing_time.fromNSec(outerTimer.ElapsedNanoseconds());
+
+  this->mMetricsMsg.scan_matcher_option =
+    static_cast<std::int32_t>(this->mScanMatcherOption);
+  this->mMetricsMsg.stamp = ros::WallTime::now().toNSec();
+  this->mMetricsMsg.scan_time_stamp = scan.header.stamp.toNSec();
+
+  // Publish the metrics information
+  if (this->mMetricsPublisher.getNumSubscribers() > 0)
+    this->mMetricsPublisher.publish(this->mMetricsMsg);
 }
 
 void HectorMappingRos::sysMsgCallback(const std_msgs::String& string)

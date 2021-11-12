@@ -45,6 +45,7 @@
 #include <tf/message_filter.h>
 
 #include "hector_mapping/ResetMapping.h"
+#include "hector_mapping/HectorMappingMetrics.h"
 
 #include "scan/DataPointContainer.h"
 #include "matcher/ScanMatcherCorrelative.hpp"
@@ -151,9 +152,10 @@ protected:
   boost::thread* map__publish_thread_;
 
   hectorslam::HectorSlamProcessor* slamProcessor;
-  hectorslam::DataContainer laserScanContainer;
 
   int mNumOfProcessedScans;
+  hector_mapping::HectorMappingMetrics mMetricsMsg;
+  ros::Publisher mMetricsPublisher;
 
   hectorslam::ScanMatcherOption mScanMatcherOption;
   std::unique_ptr<hectorslam::DefaultScanMatcher> mDefaultScanMatcher;
