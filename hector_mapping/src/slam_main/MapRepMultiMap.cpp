@@ -77,7 +77,7 @@ Eigen::Vector3f MapRepMultiMap::matchData(
     const auto& scan = (index == 0) ? dataContainer :
       this->mDataContainers[index - 1];
     poseEstimate = this->mScanMatchCallback(
-        poseEstimate, *map.gridMapUtil, scan, covMatrix, index);
+      poseEstimate, *map.gridMapUtil, scan, covMatrix, index);
   }
 
   return poseEstimate;
