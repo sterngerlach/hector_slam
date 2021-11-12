@@ -24,6 +24,10 @@ add_message_files(
   FILES
   HectorDebugInfo.msg
   HectorIterData.msg
+  HectorMappingMetrics.msg
+  ScanMatcherCorrelativeMetrics.msg
+  ScanMatcherFPGAMetrics.msg
+  ScanMatcherGaussNewtonMetrics.msg
 )
 
 ## Generate services in the 'srv' folder
