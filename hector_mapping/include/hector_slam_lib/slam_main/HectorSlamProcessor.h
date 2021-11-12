@@ -35,10 +35,13 @@
 #include "scan/DataPointContainer.h"
 #include "slam_main/MapRepresentationInterface.h"
 #include "slam_main/MapRepMultiMap.h"
-#include "util/UtilFunctions.h"
 #include "util/DrawInterface.h"
 #include "util/HectorDebugInfoInterface.h"
 #include "util/MapLockerInterface.h"
+#include "util/Timer.hpp"
+#include "util/UtilFunctions.h"
+
+#include "hector_mapping/HectorMappingMetrics.h"
 
 #include <float.h>
 
@@ -70,47 +73,72 @@ public:
     delete mapRep;
   }
 
-  void update(const DataContainer& dataContainer, const Eigen::Vector3f& poseHintWorld, bool map_without_matching = false)
+  void update(const DataContainer& dataContainer,
+              const Eigen::Vector3f& poseHintWorld,
+              hector_mapping::HectorMappingMetrics* pMetrics,
+              bool mapWithoutMatching = false)
   {
-    //std::cout << "\nph:\n" << poseHintWorld << "\n";
-
+    std::int64_t scanMatchingTime = 0;
+    std::int64_t mapUpdateTime = 0;
     Eigen::Vector3f newPoseEstimateWorld;
 
-    if (!map_without_matching){
-        newPoseEstimateWorld = (mapRep->matchData(poseHintWorld, dataContainer, lastScanMatchCov));
-    }else{
-        newPoseEstimateWorld = poseHintWorld;
+    // Perform scan matching if necessary
+    if (!mapWithoutMatching) {
+      Timer timer;
+      newPoseEstimateWorld = this->mapRep->matchData(poseHintWorld,
+        dataContainer, this->lastScanMatchCov);
+      scanMatchingTime = timer.ElapsedNanoseconds();
+    } else {
+      newPoseEstimateWorld = poseHintWorld;
     }
 
-    lastScanMatchPose = newPoseEstimateWorld;
+    this->lastScanMatchPose = newPoseEstimateWorld;
 
-    //std::cout << "\nt1:\n" << newPoseEstimateWorld << "\n";
+    // Perform grid map update if necessary
+    const bool skipMapUpdate = !mapWithoutMatching &&
+      !util::poseDifferenceLargerThan(
+        newPoseEstimateWorld, this->lastMapUpdatePose,
+        paramMinDistanceDiffForMapUpdate, paramMinAngleDiffForMapUpdate);
 
-    //std::cout << "\n1";
-    //std::cout << "\n" << lastScanMatchPose << "\n";
-    if(util::poseDifferenceLargerThan(newPoseEstimateWorld, lastMapUpdatePose, paramMinDistanceDiffForMapUpdate, paramMinAngleDiffForMapUpdate) || map_without_matching){
-
-      mapRep->updateByScan(dataContainer, newPoseEstimateWorld);
-
-      mapRep->onMapUpdated();
-      lastMapUpdatePose = newPoseEstimateWorld;
+    if (!skipMapUpdate) {
+      Timer timer;
+      this->mapRep->updateByScan(dataContainer, newPoseEstimateWorld);
+      this->mapRep->onMapUpdated();
+      this->lastMapUpdatePose = newPoseEstimateWorld;
+      mapUpdateTime = timer.ElapsedNanoseconds();
     }
 
-    if(drawInterface){
-      const GridMap& gridMapRef (mapRep->getGridMap());
-      drawInterface->setColor(1.0, 0.0, 0.0);
-      drawInterface->setScale(0.15);
+    if (this->drawInterface != nullptr) {
+      const GridMap& gridMap = this->mapRep->getGridMap();
+      this->drawInterface->setColor(1.0, 0.0, 0.0);
+      this->drawInterface->setScale(0.15);
 
-      drawInterface->drawPoint(gridMapRef.getWorldCoords(Eigen::Vector2f::Zero()));
-      drawInterface->drawPoint(gridMapRef.getWorldCoords((gridMapRef.getMapDimensions().array()-1).cast<float>()));
-      drawInterface->drawPoint(Eigen::Vector2f(1.0f, 1.0f));
+      this->drawInterface->drawPoint(gridMap.getWorldCoords(
+        Eigen::Vector2f::Zero()));
+      this->drawInterface->drawPoint(gridMap.getWorldCoords(
+        (gridMap.getMapDimensions().array() - 1).cast<float>()));
+      this->drawInterface->drawPoint(Eigen::Vector2f(1.0f, 1.0f));
 
-      drawInterface->sendAndResetData();
+      this->drawInterface->sendAndResetData();
     }
 
-    if (debugInterface)
-    {
-      debugInterface->sendAndResetData();
+    if (this->debugInterface != nullptr)
+      this->debugInterface->sendAndResetData();
+
+    // Fill the metrics information if necessary
+    if (pMetrics != nullptr) {
+      pMetrics->scan_matching_time.fromNSec(scanMatchingTime);
+      pMetrics->map_update_time.fromNSec(mapUpdateTime);
+      pMetrics->scan_matching_skipped = mapWithoutMatching;
+      pMetrics->map_update_skipped = skipMapUpdate;
+
+      // Copy vector and matrix elements to boost::array
+      Eigen::Map<Eigen::Vector3f> { pMetrics->initial_pose_estimate.data() } =
+        poseHintWorld;
+      Eigen::Map<Eigen::Vector3f> { pMetrics->final_pose_estimate.data() } =
+        newPoseEstimateWorld;
+      Eigen::Map<Eigen::Matrix3f> { pMetrics->pose_covariance.data() } =
+        this->lastScanMatchCov;
     }
   }
 
