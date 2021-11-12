@@ -43,7 +43,6 @@ public:
 
   OccGridMapUtil(const ConcreteOccGridMap* gridMap)
     : concreteGridMap(gridMap)
-    , size(0)
   {
     mapObstacleThreshold = gridMap->getObstacleThreshold();
     cacheMethod.setMapSize(gridMap->getMapDimensions());
@@ -130,7 +129,8 @@ public:
       *correspondenceCost = cost / size;
   }
 
-  Eigen::Matrix3f getCovarianceForPose(const Eigen::Vector3f& mapPose, const DataContainer& dataPoints)
+  Eigen::Matrix3f getCovarianceForPose(const Eigen::Vector3f& mapPose,
+                                       const DataContainer& dataPoints) const
   {
 
     float deltaTransX = 1.5f;
@@ -186,7 +186,8 @@ public:
     //transform = getTransformForState(Eigen::Vector3f(x-deltaTrans, y, ang);
   }
 
-  Eigen::Matrix3f getCovMatrixWorldCoords(const Eigen::Matrix3f& covMatMap)
+  Eigen::Matrix3f getCovMatrixWorldCoords(
+    const Eigen::Matrix3f& covMatMap) const
   {
 
     //std::cout << "\nCovMap:\n" << covMatMap;
@@ -213,14 +214,15 @@ public:
     return covMatWorld;
   }
 
-  float getLikelihoodForState(const Eigen::Vector3f& state, const DataContainer& dataPoints)
+  float getLikelihoodForState(const Eigen::Vector3f& state,
+                              const DataContainer& dataPoints) const
   {
     float resid = getResidualForState(state, dataPoints);
 
     return getLikelihoodForResidual(resid, dataPoints.getSize());
   }
 
-  float getLikelihoodForResidual(float residual, int numDataPoints)
+  float getLikelihoodForResidual(float residual, int numDataPoints) const
   {
     float numDataPointsA = static_cast<int>(numDataPoints);
     float sizef = static_cast<float>(numDataPointsA);
@@ -228,7 +230,8 @@ public:
     return 1 - (residual / sizef);
   }
 
-  float getResidualForState(const Eigen::Vector3f& state, const DataContainer& dataPoints)
+  float getResidualForState(const Eigen::Vector3f& state,
+                            const DataContainer& dataPoints) const
   {
     int size = dataPoints.getSize();
 
@@ -257,12 +260,14 @@ public:
     return (concreteGridMap->getGridProbabilityMap(index));
   }
 
-  float interpMapValue(const Eigen::Vector2f& coords)
+  float interpMapValue(const Eigen::Vector2f& coords) const
   {
     //check if coords are within map limits.
     if (concreteGridMap->pointOutOfMapBounds(coords)){
       return 0.0f;
     }
+
+    Eigen::Vector4f intensities;
 
     //map coords are alway positive, floor them by casting to int
     Eigen::Vector2i indMin(coords.cast<int>());
@@ -311,12 +316,15 @@ public:
 
   }
 
-  Eigen::Vector3f interpMapValueWithDerivatives(const Eigen::Vector2f& coords)
+  Eigen::Vector3f interpMapValueWithDerivatives(
+    const Eigen::Vector2f& coords) const
   {
     //check if coords are within map limits.
     if (concreteGridMap->pointOutOfMapBounds(coords)){
       return Eigen::Vector3f(0.0f, 0.0f, 0.0f);
     }
+
+    Eigen::Vector4f intensities;
 
     //map coords are always positive, floor them by casting to int
     Eigen::Vector2i indMin(coords.cast<int>());
@@ -401,17 +409,9 @@ public:
   }
 
 protected:
-
-  Eigen::Vector4f intensities;
-
-  ConcreteCacheMethod cacheMethod;
-
+  mutable ConcreteCacheMethod cacheMethod;
   const ConcreteOccGridMap* concreteGridMap;
-
   std::vector<Eigen::Vector3f> samplePoints;
-
-  int size;
-
   float mapObstacleThreshold;
 };
 
