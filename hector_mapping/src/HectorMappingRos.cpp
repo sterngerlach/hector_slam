@@ -668,14 +668,16 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
     this->mMetricsPublisher.publish(this->mMetricsMsg);
 }
 
-void HectorMappingRos::sysMsgCallback(const std_msgs::String& string)
+void HectorMappingRos::sysMsgCallback(const std_msgs::String& sysMsg)
 {
-  ROS_INFO("HectorSM sysMsgCallback, msg contents: %s", string.data.c_str());
+  ROS_INFO("Hector SLAM node received a message: %s", sysMsg.data.c_str());
 
-  if (string.data == "reset")
-  {
-    ROS_INFO("HectorSM reset");
-    slamProcessor->reset();
+  if (sysMsg.data == "reset") {
+    ROS_INFO("Hector SLAM node is reset");
+    this->slamProcessor->reset();
+  } else if (sysMsg.data == "shutdown") {
+    ROS_INFO("Hector SLAM node is shutting down");
+    ros::requestShutdown();
   }
 }
 
