@@ -79,8 +79,14 @@ public:
   inline Eigen::AlignedBox2i getBoundingBox() const
   { return this->concreteGridMap->getBoundingBox(); }
 
-  void getCompleteHessianDerivs(const Eigen::Vector3f& pose, const DataContainer& dataPoints, Eigen::Matrix3f& H, Eigen::Vector3f& dTr)
+  void getCompleteHessianDerivs(const Eigen::Vector3f& pose,
+                                const DataContainer& dataPoints,
+                                Eigen::Matrix3f& H,
+                                Eigen::Vector3f& dTr,
+                                float* correspondenceCost = nullptr) const
   {
+    float cost = 0.0f;
+
     int size = dataPoints.getSize();
 
     Eigen::Affine2f transform(getTransformForState(pose));
@@ -98,6 +104,7 @@ public:
       Eigen::Vector3f transformedPointData(interpMapValueWithDerivatives(transform * currPoint));
 
       float funVal = 1.0f - transformedPointData[0];
+      cost += funVal;
 
       dTr[0] += transformedPointData[1] * funVal;
       dTr[1] += transformedPointData[2] * funVal;
@@ -119,6 +126,8 @@ public:
     H(2, 0) = H(0, 2);
     H(2, 1) = H(1, 2);
 
+    if (correspondenceCost != nullptr)
+      *correspondenceCost = cost / size;
   }
 
   Eigen::Matrix3f getCovarianceForPose(const Eigen::Vector3f& mapPose, const DataContainer& dataPoints)
