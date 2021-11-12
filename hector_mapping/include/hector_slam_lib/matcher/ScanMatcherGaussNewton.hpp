@@ -14,6 +14,8 @@
 #include "util/DrawInterface.h"
 #include "util/HectorDebugInfoInterface.h"
 
+#include "hector_mapping/ScanMatcherGaussNewtonMetrics.h"
+
 namespace hectorslam {
 
 //
@@ -46,10 +48,11 @@ public:
   // Match scan to grid map given an initial world pose estimate
   Eigen::Vector3f MatchScans(
     const Eigen::Vector3f& initialWorldPose,
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
-    Eigen::Matrix3f& covMatrix,
-    const bool fineMatching);
+    const bool fineMatching,
+    Eigen::Matrix3f* pCovMatrix,
+    hector_mapping::ScanMatcherGaussNewtonMetrics* pMetrics);
 
 private:
   // Maximum angle update in single Gauss-Newton iteration
