@@ -4,6 +4,8 @@
 #include "matcher/ScanMatcherCorrelative.hpp"
 #include "util/Assert.hpp"
 #include "util/Parameter.hpp"
+#include "util/Timer.hpp"
+#include "util/UtilFunctions.h"
 
 #define RETURN_NULLPTR_IF_FAILED(call) if (!(call)) return nullptr;
 
@@ -68,11 +70,11 @@ ScanMatcherCorrelative::ScanMatcherCorrelative(
 // Match scan to grid map given an initial world pose estimate
 Eigen::Vector3f ScanMatcherCorrelative::MatchScans(
   const Eigen::Vector3f& initialWorldPose,
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const DataContainer& dataContainer,
-  Eigen::Matrix3f& covMatrix,
-  const bool computeCovariance,
-  const float scoreMin, const float correspondenceRatioMin)
+  const float scoreMin, const float correspondenceRatioMin,
+  Eigen::Matrix3f* pCovMatrix,
+  hector_mapping::ScanMatcherCorrelativeMetrics* pMetrics)
 {
   // `scoreMin` and `correspondenceRatioMin` are the minimum score (averaged
   // occupancy probability) and the ratio of matching correspondences
@@ -80,6 +82,8 @@ Eigen::Vector3f ScanMatcherCorrelative::MatchScans(
 
   if (dataContainer.getSize() <= 0)
     return initialWorldPose;
+
+  Timer timer;
 
   // Resize and clear the coarse grid map
   this->mCoarseMap.setMapSize(Eigen::Vector2i(
@@ -166,14 +170,32 @@ Eigen::Vector3f ScanMatcherCorrelative::MatchScans(
     gridMapUtil.getWorldCoordsPose(bestMapPose);
 
   // Compute the pose covariance only if necessary
-  if (computeCovariance) {
+  if (pCovMatrix != nullptr) {
     // Compute the covariance matrix (in the world coordinate frame)
     const Eigen::Matrix3f covMatrixMap =
       gridMapUtil.getCovarianceForPose(bestMapPose, dataContainer);
     const Eigen::Matrix3f covMatrixWorld =
       gridMapUtil.getCovMatrixWorldCoords(covMatrixMap);
     // Set the covariance matrix (in the map coordinate frame)
-    covMatrix = covMatrixMap;
+    *pCovMatrix = covMatrixMap;
+  }
+
+  // Fill the metrics information if necessary
+  if (pMetrics != nullptr) {
+    const Eigen::Vector3f poseDiffWorld = bestWorldPose - initialWorldPose;
+    pMetrics->optimization_time.fromNSec(timer.ElapsedNanoseconds());
+    pMetrics->diff_translation = poseDiffWorld.head<2>().norm();
+    pMetrics->diff_rotation = util::NormalizeAngleDifference(poseDiffWorld[2]);
+    pMetrics->win_size_x = windowSize[0] * 2 + 1;
+    pMetrics->win_size_y = windowSize[1] * 2 + 1;
+    pMetrics->win_size_theta = windowSize[2] * 2 + 1;
+    pMetrics->step_size_x = gridMapUtil.getCellLength();
+    pMetrics->step_size_y = gridMapUtil.getCellLength();
+    pMetrics->step_size_theta = stepTheta;
+    pMetrics->num_of_skipped_nodes = numOfSkipped;
+    pMetrics->num_of_processed_nodes = numOfProcessed;
+    pMetrics->score = scoreMax;
+    pMetrics->num_of_scans = dataContainer.getSize();
   }
 
   return bestWorldPose;
@@ -182,7 +204,7 @@ Eigen::Vector3f ScanMatcherCorrelative::MatchScans(
 // Compute the grid cell indices for scan points
 void ScanMatcherCorrelative::ComputeMapIndices(
   const Eigen::Vector3f& mapPose,
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const DataContainer& dataContainer,
   std::vector<Eigen::Vector2i>& indices) const
 {
@@ -202,7 +224,7 @@ void ScanMatcherCorrelative::ComputeMapIndices(
 
 // Compute the score using the coarse grid map
 float ScanMatcherCorrelative::ComputeScoreCoarseMap(
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const std::vector<Eigen::Vector2i>& indices,
   const Eigen::Vector2i& offset)
 {
@@ -247,7 +269,7 @@ float ScanMatcherCorrelative::ComputeScoreCoarseMap(
 
 // Compute the score using the original grid map
 void ScanMatcherCorrelative::ComputeScoreFineMap(
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const std::vector<Eigen::Vector2i>& indices,
   const Eigen::Vector3i& startEstimate,
   Eigen::Vector3i& bestEstimate, float& scoreMax)

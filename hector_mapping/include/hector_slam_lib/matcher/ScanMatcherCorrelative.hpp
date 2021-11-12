@@ -15,6 +15,8 @@
 #include "util/DrawInterface.h"
 #include "util/HectorDebugInfoInterface.h"
 
+#include "hector_mapping/ScanMatcherCorrelativeMetrics.h"
+
 namespace hectorslam {
 
 //
@@ -46,34 +48,29 @@ public:
   // Match scan to grid map given an initial world pose estimate
   Eigen::Vector3f MatchScans(
     const Eigen::Vector3f& initialWorldPose,
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
-    Eigen::Matrix3f& covMatrix,
-    const bool computeCovariance,
-    const float scoreMin = 0.0f,
-    const float correspondenceRatioMin = 0.0f);
+    const float scoreMin,
+    const float correspondenceRatioMin,
+    Eigen::Matrix3f* pCovMatrix,
+    hector_mapping::ScanMatcherCorrelativeMetrics* pMetrics);
 
 private:
-  // Determine the search step in the map coordinate frame
-  Eigen::Vector3f DetermineSearchStep(
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
-    const float scanRangeMax) const;
-
   // Compute the grid cell indices for scan points
   void ComputeMapIndices(
     const Eigen::Vector3f& mapPose,
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
     std::vector<Eigen::Vector2i>& indices) const;
 
   // Compute the score using the coarse grid map
   float ComputeScoreCoarseMap(
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const std::vector<Eigen::Vector2i>& indices,
     const Eigen::Vector2i& offset);
   // Compute the score using the original grid map
   void ComputeScoreFineMap(
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const std::vector<Eigen::Vector2i>& indices,
     const Eigen::Vector3i& startEstimate,
     Eigen::Vector3i& bestEstimate, float& scoreMax);
