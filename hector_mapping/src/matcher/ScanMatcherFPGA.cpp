@@ -5,6 +5,8 @@
 #include "util/Assert.hpp"
 #include "util/DataConversion.hpp"
 #include "util/Parameter.hpp"
+#include "util/Timer.hpp"
+#include "util/UtilFunctions.h"
 
 #define RETURN_FALSE_IF_FAILED(call) if (!(call)) return false;
 #define RETURN_NULLPTR_IF_FAILED(call) if (!(call)) return nullptr;
@@ -196,14 +198,17 @@ ScanMatcherFPGA::ScanMatcherFPGA(
 // Match scan to grid map given an initial world pose estimate
 Eigen::Vector3f ScanMatcherFPGA::MatchScans(
   const Eigen::Vector3f& initialWorldPose,
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const DataContainer& dataContainer,
-  Eigen::Matrix3f& covMatrix,
-  const bool computeCovariance,
-  const float scoreMin, const float correspondenceRatioMin)
+  const float scoreMin, const float correspondenceRatioMin,
+  Eigen::Matrix3f* pCovMatrix,
+  hector_mapping::ScanMatcherFPGAMetrics* pMetrics)
 {
   if (dataContainer.getSize() <= 0)
     return initialWorldPose;
+
+  Timer outerTimer;
+  Timer timer;
 
   // `scaleMapToWorld` is same as the grid map resolution (e.g., 0.05) and
   // `scaleWorldToMap` is its reciprocal (e.g., 20.0)
@@ -276,18 +281,38 @@ Eigen::Vector3f ScanMatcherFPGA::MatchScans(
 
   // Write the scan matcher IP control registers
   this->SetIPRegisters(ipRegisters);
+  const int inputSetupTime = timer.ElapsedNanoseconds();
+  timer.Start();
+
   // Start the scan matcher IP core
   this->StartIP();
+  const int ipSetupTime = timer.ElapsedNanoseconds();
+  timer.Start();
 
   // Transfer the scan through AXI4-Stream interface
   this->TransferScan(dataContainer, ipRegisters.mNumOfScans, scaleMapToWorld);
+  const int scanTransferTime = timer.ElapsedNanoseconds();
+  timer.Start();
+
   // Transfer the grid map through AXI4-Stream interface
-  this->TransferMap(gridMapUtil, boundingBox);
+  Eigen::Vector2i transferredMapSize;
+  int numOfTransferredNumBlocks;
+  this->TransferMap(gridMapUtil, boundingBox,
+                    transferredMapSize, numOfTransferredNumBlocks);
+  const int mapTransferTime = timer.ElapsedNanoseconds();
+  timer.Start();
 
   // Receive the result from AXI4-Stream interface
   Eigen::Vector3i bestEstimate;
   int scoreMax;
   this->ReceiveResult(bestEstimate, scoreMax);
+  const int ipOptimizationTime = timer.ElapsedNanoseconds();
+  timer.Start();
+
+  // Wait until the scan matcher IP core is in idle state
+  this->WaitIP();
+  const int ipWaitTime = timer.ElapsedNanoseconds();
+  timer.Stop();
 
   // Compute the best pose (in the world coordinate frame)
   const bool foundEstimate = scoreMax > ipRegisters.mScoreMin;
@@ -297,14 +322,42 @@ Eigen::Vector3f ScanMatcherFPGA::MatchScans(
     gridMapUtil.getWorldCoordsPose(bestMapPose);
 
   // Compute the pose covariance only if necessary
-  if (computeCovariance) {
+  if (pCovMatrix != nullptr) {
     // Compute the covariance matrix (in the world coordinate frame)
     const Eigen::Matrix3f covMatrixMap =
       gridMapUtil.getCovarianceForPose(bestMapPose, dataContainer);
     const Eigen::Matrix3f covMatrixWorld =
       gridMapUtil.getCovMatrixWorldCoords(covMatrixMap);
     // Set the covariance matrix (in the map coordinate frame)
-    covMatrix = covMatrixMap;
+    *pCovMatrix = covMatrixMap;
+  }
+
+  // Fill the metrics information if necessary
+  if (pMetrics != nullptr) {
+    const Eigen::Vector3f poseDiffWorld = bestWorldPose - initialWorldPose;
+    const float normalizedScore = static_cast<float>(scoreMax)
+      / static_cast<float>((1 << this->mIPConfig.mBitsPerValue) - 1)
+      / static_cast<float>(ipRegisters.mNumOfScans);
+    pMetrics->optimization_time.fromNSec(outerTimer.ElapsedNanoseconds());
+    pMetrics->input_setup_time.fromNSec(inputSetupTime);
+    pMetrics->ip_setup_time.fromNSec(ipSetupTime);
+    pMetrics->scan_transfer_time.fromNSec(scanTransferTime);
+    pMetrics->map_transfer_time.fromNSec(mapTransferTime);
+    pMetrics->ip_optimization_time.fromNSec(ipOptimizationTime);
+    pMetrics->ip_wait_time.fromNSec(ipWaitTime);
+    pMetrics->diff_translation = poseDiffWorld.head<2>().norm();
+    pMetrics->diff_rotation = util::NormalizeAngleDifference(poseDiffWorld[2]);
+    pMetrics->win_size_x = halfWindowSize[0] * 2 + 1;
+    pMetrics->win_size_y = halfWindowSize[1] * 2 + 1;
+    pMetrics->win_size_theta = halfWindowSize[2] * 2 + 1;
+    pMetrics->step_size_x = gridMapUtil.getCellLength();
+    pMetrics->step_size_y = gridMapUtil.getCellLength();
+    pMetrics->step_size_theta = stepTheta;
+    pMetrics->transferred_map_size_x = transferredMapSize.x();
+    pMetrics->transferred_map_size_y = transferredMapSize.y();
+    pMetrics->num_of_transferred_map_blocks = numOfTransferredNumBlocks;
+    pMetrics->score = normalizedScore;
+    pMetrics->num_of_scans = ipRegisters.mNumOfScans;
   }
 
   return bestWorldPose;
@@ -463,8 +516,10 @@ void ScanMatcherFPGA::TransferScan(
 
 // Transfer the grid map through AXI4-Stream interface
 void ScanMatcherFPGA::TransferMap(
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
-  const Eigen::AlignedBox2i& boundingBox)
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const Eigen::AlignedBox2i& boundingBox,
+  Eigen::Vector2i& transferredMapSize,
+  int& numOfTransferredMapBlocks)
 {
   // Get the pointer to the contiguous memory
   auto* pInput = this->mInputData.Ptr<volatile std::uint64_t>();
@@ -506,6 +561,12 @@ void ScanMatcherFPGA::TransferMap(
     bytesLength, this->mInputData.PhysicalAddress());
   // Wait for the data transfer completion
   this->mAxiDma->SendChannel().Wait();
+
+  // Set the size of the transferred grid map
+  transferredMapSize.x() = chunksPerRow * gridCellsPerChunk;
+  transferredMapSize.y() = boundingBox.sizes().y();
+  // Set the number of the transferred blocks
+  numOfTransferredMapBlocks = boundingBox.sizes().y() * chunksPerRow;
 }
 
 // Receive the result from AXI4-Stream interface
@@ -529,7 +590,7 @@ void ScanMatcherFPGA::ReceiveResult(
 
 // Compute the bounding box of the grid map to transfer
 Eigen::AlignedBox2i ScanMatcherFPGA::ComputeBoundingBox(
-  OccGridMapUtilConfig<GridMap>& gridMapUtil,
+  const OccGridMapUtilConfig<GridMap>& gridMapUtil,
   const Eigen::Vector3f& centerMapPose)
 {
   const int mapSizeXMax = this->mIPConfig.mMapSizeXMax;

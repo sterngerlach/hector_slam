@@ -19,6 +19,8 @@
 #include "util/DrawInterface.h"
 #include "util/HectorDebugInfoInterface.h"
 
+#include "hector_mapping/ScanMatcherFPGAMetrics.h"
+
 namespace hectorslam {
 
 //
@@ -158,12 +160,12 @@ public:
   // Match scan to grid map given an initial world pose estimate
   Eigen::Vector3f MatchScans(
     const Eigen::Vector3f& initialWorldPose,
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const DataContainer& dataContainer,
-    Eigen::Matrix3f& covMatrix,
-    const bool computeCovariance,
-    const float scoreMin = 0.0f,
-    const float correspondenceRatioMin = 0.0f);
+    const float scoreMin,
+    const float correspondenceRatioMin,
+    Eigen::Matrix3f* pCovMatrix,
+    hector_mapping::ScanMatcherFPGAMetrics* pMetrics);
 
 private:
   // Initialize the contiguous memory to store the inputs
@@ -180,14 +182,16 @@ private:
   void TransferScan(const DataContainer& dataContainer,
                     const int numOfScans, const float scale);
   // Transfer the grid map through AXI4-Stream interface
-  void TransferMap(OccGridMapUtilConfig<GridMap>& gridMapUtil,
-                   const Eigen::AlignedBox2i& boundingBox);
+  void TransferMap(const OccGridMapUtilConfig<GridMap>& gridMapUtil,
+                   const Eigen::AlignedBox2i& boundingBox,
+                   Eigen::Vector2i& transferredMapSize,
+                   int& numOfTransferredMapBlocks);
   // Receive the result from AXI4-Stream interface
   void ReceiveResult(Eigen::Vector3i& bestEstimate, int& scoreMax);
 
   // Compute the bounding box of the grid map to transfer
   Eigen::AlignedBox2i ComputeBoundingBox(
-    OccGridMapUtilConfig<GridMap>& gridMapUtil,
+    const OccGridMapUtilConfig<GridMap>& gridMapUtil,
     const Eigen::Vector3f& centerMapPose);
 
 private:
