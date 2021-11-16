@@ -294,6 +294,26 @@ HectorMappingRos::HectorMappingRos() :
       this->mMapPubPeriod));
 }
 
+HectorMappingRos::~HectorMappingRos()
+{
+  if (this->mMapPublishThread->joinable())
+    this->mMapPublishThread->join();
+
+  // Release `mMapPublishThread` before `mSlamProcessor` to avoid
+  // invalid memory accesses to `mSlamProcessor` inside the `publishMapLoop()`
+  this->mMapPublishThread.reset(nullptr);
+  this->mSlamProcessor.reset(nullptr);
+
+  this->mHectorDrawings.reset(nullptr);
+  this->mDebugInfoProvider.reset(nullptr);
+  this->mTfBroadcaster.reset(nullptr);
+
+  // Delete `mInitialPoseFilter` before `mInitialPoseSubscriber` to avoid
+  // `boost::lock_error` exception in the destructor
+  this->mInitialPoseFilter.reset(nullptr);
+  this->mInitialPoseSubscriber.reset(nullptr);
+}
+
 bool HectorMappingRos::setupFPGA(ros::NodeHandle& nh)
 {
   // Get the option to enable FPGA acceleration
@@ -508,7 +528,7 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
   if (++this->mNumOfProcessedScans % 10 == 0)
     ROS_INFO("Processing the frame: %d", this->mNumOfProcessedScans);
 
-  if (this->mHectorDrawings.get() != nullptr)
+  if (this->mHectorDrawings != nullptr)
     this->mHectorDrawings->setTime(scan.header.stamp);
 
   ros::WallTime startTime = ros::WallTime::now();

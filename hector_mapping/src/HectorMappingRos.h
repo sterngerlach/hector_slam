@@ -73,7 +73,7 @@ class HectorMappingRos
 {
 public:
   HectorMappingRos();
-  ~HectorMappingRos() = default;
+  ~HectorMappingRos();
 
   bool setupFPGA(ros::NodeHandle& nh);
   bool initializeScanMatcher(ros::NodeHandle& nh);
