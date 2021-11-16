@@ -26,22 +26,25 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef _hectormaprepresentationinterface_h__
-#define _hectormaprepresentationinterface_h__
+#ifndef HECTOR_SLAM_SLAM_MAIN_MAP_REPRESENTATION_INTERFACE_H
+#define HECTOR_SLAM_SLAM_MAIN_MAP_REPRESENTATION_INTERFACE_H
 
+#include <Eigen/Core>
+
+#include "map/GridMap.h"
+#include "scan/DataPointContainer.h"
 #include "util/MapLockerInterface.h"
 
 class GridMap;
 class ConcreteOccGridMapUtil;
 class DataContainer;
 
-namespace hectorslam{
+namespace hectorslam {
 
 class MapRepresentationInterface
 {
 public:
-
-  virtual ~MapRepresentationInterface() {};
+  virtual ~MapRepresentationInterface() = default;
 
   virtual void reset() = 0;
 
@@ -55,14 +58,17 @@ public:
 
   virtual void onMapUpdated() = 0;
 
-  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix) = 0;
+  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld,
+                                    const DataContainer& dataContainer,
+                                    Eigen::Matrix3f& covMatrix) = 0;
 
-  virtual void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld) = 0;
+  virtual void updateByScan(const DataContainer& dataContainer,
+                            const Eigen::Vector3f& robotPoseWorld) = 0;
 
   virtual void setUpdateFactorFree(float free_factor) = 0;
   virtual void setUpdateFactorOccupied(float occupied_factor) = 0;
 };
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_SLAM_MAIN_MAP_REPRESENTATION_INTERFACE_H

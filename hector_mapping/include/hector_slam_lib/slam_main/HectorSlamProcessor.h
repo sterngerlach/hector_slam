@@ -26,8 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef _hectorslamprocessor_h__
-#define _hectorslamprocessor_h__
+#ifndef HECTOR_SLAM_SLAM_MAIN_HECTOR_SLAM_PROCESSOR_H
+#define HECTOR_SLAM_SLAM_MAIN_HECTOR_SLAM_PROCESSOR_H
 
 #include "map/GridMap.h"
 #include "map/OccGridMapUtilConfig.h"
@@ -45,7 +45,7 @@
 
 #include <float.h>
 
-namespace hectorslam{
+namespace hectorslam {
 
 class HectorSlamProcessor
 {
@@ -58,7 +58,7 @@ public:
     drawInterface(drawInterfaceIn),
     debugInterface(debugInterfaceIn)
   {
-    mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY,
+    this->mapRep = new MapRepMultiMap(mapResolution, mapSizeX, mapSizeY,
       multi_res_size, startCoords, scanMatchCallback,
       drawInterfaceIn, debugInterfaceIn);
 
@@ -70,7 +70,7 @@ public:
 
   ~HectorSlamProcessor()
   {
-    delete mapRep;
+    delete this->mapRep;
   }
 
   void update(const DataContainer& dataContainer,
@@ -144,32 +144,42 @@ public:
 
   void reset()
   {
-    lastMapUpdatePose = Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
-    lastScanMatchPose = Eigen::Vector3f::Zero();
-    //lastScanMatchPose.x() = -10.0f;
-    //lastScanMatchPose.y() = -15.0f;
-    //lastScanMatchPose.z() = M_PI*0.15f;
+    this->lastMapUpdatePose = Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX);
+    this->lastScanMatchPose = Eigen::Vector3f::Zero();
+    // this->lastScanMatchPose.x() = -10.0f;
+    // this->lastScanMatchPose.y() = -15.0f;
+    // this->lastScanMatchPose.z() = M_PI * 0.15f;
 
-    mapRep->reset();
+    this->mapRep->reset();
   }
 
-  const Eigen::Vector3f& getLastScanMatchPose() const { return lastScanMatchPose; };
-  const Eigen::Matrix3f& getLastScanMatchCovariance() const { return lastScanMatchCov; };
-  float getScaleToMap() const { return mapRep->getScaleToMap(); };
+  inline const Eigen::Vector3f& getLastScanMatchPose() const
+  { return this->lastScanMatchPose; }
+  inline const Eigen::Matrix3f& getLastScanMatchCovariance() const
+  { return this->lastScanMatchCov; }
+  inline float getScaleToMap() const
+  { return this->mapRep->getScaleToMap(); }
 
-  int getMapLevels() const { return mapRep->getMapLevels(); };
-  const GridMap& getGridMap(int mapLevel = 0) const { return mapRep->getGridMap(mapLevel); };
+  inline int getMapLevels() const
+  { return this->mapRep->getMapLevels(); }
+  inline const GridMap& getGridMap(int mapLevel = 0) const
+  { return this->mapRep->getGridMap(mapLevel); }
 
-  void addMapMutex(int i, MapLockerInterface* mapMutex) { mapRep->addMapMutex(i, mapMutex); };
-  MapLockerInterface* getMapMutex(int i) { return mapRep->getMapMutex(i); };
+  inline void addMapMutex(int i, MapLockerInterface* mapMutex)
+  { this->mapRep->addMapMutex(i, mapMutex); }
+  inline MapLockerInterface* getMapMutex(int i)
+  { return this->mapRep->getMapMutex(i); }
 
-  void setUpdateFactorFree(float free_factor) { mapRep->setUpdateFactorFree(free_factor); };
-  void setUpdateFactorOccupied(float occupied_factor) { mapRep->setUpdateFactorOccupied(occupied_factor); };
-  void setMapUpdateMinDistDiff(float minDist) { paramMinDistanceDiffForMapUpdate = minDist; };
-  void setMapUpdateMinAngleDiff(float angleChange) { paramMinAngleDiffForMapUpdate = angleChange; };
+  inline void setUpdateFactorFree(float free_factor)
+  { this->mapRep->setUpdateFactorFree(free_factor); }
+  inline void setUpdateFactorOccupied(float occupied_factor)
+  { this->mapRep->setUpdateFactorOccupied(occupied_factor); }
+  inline void setMapUpdateMinDistDiff(float minDist)
+  { this->paramMinDistanceDiffForMapUpdate = minDist; }
+  inline void setMapUpdateMinAngleDiff(float angleChange)
+  { this->paramMinAngleDiffForMapUpdate = angleChange; }
 
 protected:
-
   MapRepresentationInterface* mapRep;
 
   Eigen::Vector3f lastMapUpdatePose;
@@ -183,6 +193,6 @@ protected:
   HectorDebugInfoInterface* debugInterface;
 };
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_SLAM_MAIN_HECTOR_SLAM_PROCESSOR_H

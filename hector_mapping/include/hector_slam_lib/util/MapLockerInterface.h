@@ -26,8 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef maplockerinterface_h__
-#define maplockerinterface_h__
+#ifndef HECTOR_SLAM_UTIL_MAP_LOCKER_INTERFACE_H
+#define HECTOR_SLAM_UTIL_MAP_LOCKER_INTERFACE_H
 
 class MapLockerInterface
 {
@@ -36,4 +36,4 @@ public:
   virtual void unlockMap() = 0;
 };
 
-#endif
+#endif // HECTOR_SLAM_UTIL_MAP_LOCKER_INTERFACE_H

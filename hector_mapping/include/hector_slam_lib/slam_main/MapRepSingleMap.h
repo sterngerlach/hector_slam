@@ -26,72 +26,77 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef _hectormaprepsinglemap_h__
-#define _hectormaprepsinglemap_h__
+#ifndef HECTOR_SLAM_SLAM_MAIN_MAP_REP_SINGLE_MAP_H
+#define HECTOR_SLAM_SLAM_MAIN_MAP_REP_SINGLE_MAP_H
 
-#include "MapRepresentationInterface.h"
+#include "map/GridMap.h"
+#include "map/OccGridMapUtilConfig.h"
+#include "matcher/ScanMatcher.h"
+#include "slam_main/MapRepresentationInterface.h"
+#include "util/DrawInterface.h"
+#include "util/HectorDebugInfoInterface.h"
 
-#include "../map/GridMap.h"
-#include "../map/OccGridMapUtilConfig.h"
-#include "../matcher/ScanMatcher.h"
-
-#include "../util/DrawInterface.h"
-#include "../util/HectorDebugInfoInterface.h"
-
-namespace hectorslam{
+namespace hectorslam {
 
 class MapRepSingleMap : public MapRepresentationInterface
 {
-
 public:
-  MapRepSingleMap(float mapResolution, DrawInterface* drawInterfaceIn, HectorDebugInfoInterface* debugInterfaceIn)
+  MapRepSingleMap(float mapResolution,
+                  DrawInterface* drawInterfaceIn,
+                  HectorDebugInfoInterface* debugInterfaceIn) :
+    gridMap(nullptr),
+    gridMapUtil(nullptr),
+    scanMatcher(nullptr)
   {
-    gridMap = new hectorslam::GridMap(mapResolution,Eigen::Vector2i(1024,1024), Eigen::Vector2f(20.0f, 20.0f));
-    gridMapUtil = new OccGridMapUtilConfig<GridMap>(gridMap);
-    scanMatcher = new hectorslam::ScanMatcher<OccGridMapUtilConfig<GridMap> >(drawInterfaceIn, debugInterfaceIn);
+    this->gridMap = new GridMap(mapResolution, Eigen::Vector2i(1024, 1024),
+      Eigen::Vector2f(20.0f, 20.0f));
+    this->gridMapUtil = new OccGridMapUtilConfig<GridMap>(this->gridMap);
+    this->scanMatcher = new ScanMatcher<OccGridMapUtilConfig<GridMap>>(
+      drawInterfaceIn, debugInterfaceIn);
   }
 
   virtual ~MapRepSingleMap()
   {
-    delete gridMap;
-    delete gridMapUtil;
-    delete scanMatcher;
+    delete this->gridMap;
+    delete this->gridMapUtil;
+    delete this->scanMatcher;
   }
 
   virtual void reset()
   {
-    gridMap->reset();
-    gridMapUtil->resetCachedData();
+    this->gridMap->reset();
+    this->gridMapUtil->resetCachedData();
   }
 
-  virtual float getScaleToMap() const { return gridMap->getScaleToMap(); };
+  virtual inline float getScaleToMap() const
+  { return this->gridMap->getScaleToMap(); }
 
-  virtual int getMapLevels() const { return 1; };
-  virtual const GridMap& getGridMap(int mapLevel) const { return *gridMap; };
+  virtual inline int getMapLevels() const { return 1; }
+  virtual inline const GridMap& getGridMap(int mapLevel) const
+  { return *this->gridMap; }
 
-  virtual void onMapUpdated()
+  virtual void onMapUpdated() { this->gridMapUtil->resetCachedData(); }
+
+  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld,
+                                    const DataContainer& dataContainer,
+                                    Eigen::Matrix3f& covMatrix)
   {
-    gridMapUtil->resetCachedData();
+    return this->scanMatcher->matchData(
+      beginEstimateWorld, *this->gridMapUtil, dataContainer, covMatrix, 20);
   }
 
-  virtual Eigen::Vector3f matchData(const Eigen::Vector3f& beginEstimateWorld, const DataContainer& dataContainer, Eigen::Matrix3f& covMatrix)
+  virtual void updateByScan(const DataContainer& dataContainer,
+                            const Eigen::Vector3f& robotPoseWorld)
   {
-    return scanMatcher->matchData(beginEstimateWorld, *gridMapUtil, dataContainer, covMatrix, 20);
-  }
-
-  virtual void updateByScan(const DataContainer& dataContainer, const Eigen::Vector3f& robotPoseWorld)
-  {
-    gridMap->updateByScan(dataContainer, robotPoseWorld);
+    this->gridMap->updateByScan(dataContainer, robotPoseWorld);
   }
 
 protected:
   GridMap* gridMap;
   OccGridMapUtilConfig<GridMap>* gridMapUtil;
-  ScanMatcher<OccGridMapUtilConfig<GridMap> >* scanMatcher;
+  ScanMatcher<OccGridMapUtilConfig<GridMap>>* scanMatcher;
 };
 
-}
+} // namespace hectorslam
 
-#endif
-
-
+#endif // HECTOR_SLAM_SLAM_MAIN_MAP_REP_SINGLE_MAP_H
