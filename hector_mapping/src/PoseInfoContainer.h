@@ -26,8 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef POSE_INFO_CONTAINER_H__
-#define POSE_INFO_CONTAINER_H__
+#ifndef HECTOR_SLAM_POSE_INFO_CONTAINER_H
+#define HECTOR_SLAM_POSE_INFO_CONTAINER_H
 
 #include <tf/transform_datatypes.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -35,21 +35,25 @@
 
 #include <Eigen/Core>
 
-class PoseInfoContainer{
+class PoseInfoContainer
+{
 public:
+  void update(const Eigen::Vector3f& slamPose,
+              const Eigen::Matrix3f& slamCov,
+              const ros::Time& stamp,
+              const std::string& frame_id);
 
-  void update(const Eigen::Vector3f& slamPose, const Eigen::Matrix3f& slamCov, const ros::Time& stamp, const std::string& frame_id);
-
-  const geometry_msgs::PoseStamped& getPoseStamped() { return stampedPose_; };
-  const geometry_msgs::PoseWithCovarianceStamped& getPoseWithCovarianceStamped() { return covPose_; };
-  const tf::Transform& getTfTransform() { return poseTransform_; };
+  inline const geometry_msgs::PoseStamped& getPoseStamped()
+  { return this->stampedPose_; }
+  inline const geometry_msgs::PoseWithCovarianceStamped&
+    getPoseWithCovarianceStamped() { return this->covPose_; }
+  inline const tf::Transform& getTfTransform()
+  { return this->poseTransform_; }
 
 protected:
   geometry_msgs::PoseStamped stampedPose_;
   geometry_msgs::PoseWithCovarianceStamped covPose_;
   tf::Transform poseTransform_;
-
 };
 
-#endif
-
+#endif // HECTOR_SLAM_POSE_INFO_CONTAINER_H

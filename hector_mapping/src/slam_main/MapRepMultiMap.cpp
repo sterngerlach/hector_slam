@@ -25,10 +25,10 @@ MapRepMultiMap::MapRepMultiMap(
   const Eigen::Vector2f midOffset { midOffsetX, midOffsetY };
 
   for (unsigned int i = 0; i < numDepth; ++i) {
-    std::cout << "HectorSM map lvl " << i << ": "
+    std::cout << "HectorSM map level " << i << ": "
               << "cellLength: " << mapResolution << ' '
-              << "res x: " << resolution.x() << ' '
-              << "res y: " << resolution.y() << '\n';
+              << "resolution x: " << resolution.x() << ' '
+              << "resolution y: " << resolution.y() << '\n';
     auto gridMap = std::make_unique<GridMap>(
       mapResolution, resolution, midOffset);
     auto gridMapUtil = std::make_unique<GridMapUtil>(gridMap.get());

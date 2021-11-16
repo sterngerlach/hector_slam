@@ -26,8 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef HECTOR_MAPPING_ROS_H__
-#define HECTOR_MAPPING_ROS_H__
+#ifndef HECTOR_SLAM_HECTOR_MAPPING_ROS_H
+#define HECTOR_SLAM_HECTOR_MAPPING_ROS_H
 
 #include <memory>
 #include <boost/thread.hpp>
@@ -47,12 +47,12 @@
 #include "hector_mapping/ResetMapping.h"
 #include "hector_mapping/HectorMappingMetrics.h"
 
-#include "scan/DataPointContainer.h"
 #include "matcher/ScanMatcherCorrelative.hpp"
 #include "matcher/ScanMatcherFPGA.hpp"
 #include "matcher/ScanMatcherGaussNewton.hpp"
 #include "matcher/ScanMatcherOptions.hpp"
 #include "matcher/ScanMatcherTypes.hpp"
+#include "scan/DataPointContainer.h"
 #include "slam_main/HectorSlamProcessor.h"
 #include "util/MapLockerInterface.h"
 
@@ -88,34 +88,45 @@ public:
   void scanCallback(const sensor_msgs::LaserScan& scan);
   void sysMsgCallback(const std_msgs::String& string);
 
-  bool mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res);
-  bool resetMapCallback(std_srvs::Trigger::Request  &req, std_srvs::Trigger::Response &res);
-  bool restartHectorCallback(hector_mapping::ResetMapping::Request  &req, hector_mapping::ResetMapping::Response &res);
-  bool pauseMapCallback(std_srvs::SetBool::Request  &req, std_srvs::SetBool::Response &res);
+  bool mapCallback(nav_msgs::GetMap::Request &req,
+                   nav_msgs::GetMap::Response &res);
+  bool resetMapCallback(std_srvs::Trigger::Request &req,
+                        std_srvs::Trigger::Response &res);
+  bool restartHectorCallback(hector_mapping::ResetMapping::Request &req,
+                             hector_mapping::ResetMapping::Response &res);
+  bool pauseMapCallback(std_srvs::SetBool::Request &req,
+                        std_srvs::SetBool::Response &res);
 
-  void publishMap(MapPublisherContainer& map_, const hectorslam::GridMap& gridMap, ros::Time timestamp, MapLockerInterface* mapMutex = 0);
+  void publishMap(MapPublisherContainer& map_,
+                  const hectorslam::GridMap& gridMap,
+                  ros::Time timestamp,
+                  MapLockerInterface* mapMutex = nullptr);
 
-  void rosLaserScanToDataContainer(const sensor_msgs::LaserScan& scan, hectorslam::DataContainer& dataContainer, float scaleToMap);
-  void rosPointCloudToDataContainer(const sensor_msgs::PointCloud& pointCloud, const tf::StampedTransform& laserTransform, hectorslam::DataContainer& dataContainer, float scaleToMap);
+  void rosLaserScanToDataContainer(const sensor_msgs::LaserScan& scan,
+                                   hectorslam::DataContainer& dataContainer,
+                                   float scaleToMap);
+  void rosPointCloudToDataContainer(const sensor_msgs::PointCloud& pointCloud,
+                                    const tf::StampedTransform& laserTransform,
+                                    hectorslam::DataContainer& dataContainer,
+                                    float scaleToMap);
 
-  void setServiceGetMapData(nav_msgs::GetMap::Response& map_, const hectorslam::GridMap& gridMap);
+  void setServiceGetMapData(nav_msgs::GetMap::Response& map_,
+                            const hectorslam::GridMap& gridMap);
 
   void publishTransformLoop(double p_transform_pub_period_);
   void publishMapLoop(double p_map_pub_period_);
   void publishTransform();
 
-  void staticMapCallback(const nav_msgs::OccupancyGrid& map);
-  void initialPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
+  void initialPoseCallback(
+    const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 
   // Internal mapping management functions
   void toggleMappingPause(bool pause);
   void resetPose(const geometry_msgs::Pose &pose);
 
-  /*
-  void setStaticMapData(const nav_msgs::OccupancyGrid& map);
-  */
-protected:
+  // void setStaticMapData(const nav_msgs::OccupancyGrid& map);
 
+protected:
   HectorDebugInfoProvider* debugInfoProvider;
   HectorDrawings* hectorDrawings;
 
@@ -127,8 +138,10 @@ protected:
   ros::Subscriber sysMsgSubscriber_;
 
   ros::Subscriber mapSubscriber_;
-  message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped>* initial_pose_sub_;
-  tf::MessageFilter<geometry_msgs::PoseWithCovarianceStamped>* initial_pose_filter_;
+  message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped>*
+    initial_pose_sub_;
+  tf::MessageFilter<geometry_msgs::PoseWithCovarianceStamped>*
+    initial_pose_filter_;
 
   ros::Publisher posePublisher_;
   ros::Publisher poseUpdatePublisher_;
@@ -176,14 +189,15 @@ protected:
 
   bool pause_scan_processing_;
 
-  //-----------------------------------------------------------
+  //
   // Parameters
+  //
 
   std::string p_base_frame_;
   std::string p_map_frame_;
   std::string p_odom_frame_;
 
-  //Parameters related to publishing the scanmatcher pose directly via tf
+  // Parameters related to publishing the scanmatcher pose directly via tf
   bool p_pub_map_scanmatch_transform_;
   std::string p_tf_map_scanmatch_transform_frame_name_;
 
@@ -224,4 +238,4 @@ protected:
   float p_laser_z_max_value_;
 };
 
-#endif
+#endif // HECTOR_SLAM_HECTOR_MAPPING_ROS_H
