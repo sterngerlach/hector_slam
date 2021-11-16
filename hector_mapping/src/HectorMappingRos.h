@@ -56,10 +56,9 @@
 #include "slam_main/HectorSlamProcessor.h"
 #include "util/MapLockerInterface.h"
 
+#include "HectorDebugInfoProvider.h"
+#include "HectorDrawings.h"
 #include "PoseInfoContainer.h"
-
-class HectorDrawings;
-class HectorDebugInfoProvider;
 
 class MapPublisherContainer
 {
@@ -74,7 +73,7 @@ class HectorMappingRos
 {
 public:
   HectorMappingRos();
-  ~HectorMappingRos();
+  ~HectorMappingRos() = default;
 
   bool setupFPGA(ros::NodeHandle& nh);
   bool initializeScanMatcher(ros::NodeHandle& nh);
@@ -127,44 +126,39 @@ public:
   // void setStaticMapData(const nav_msgs::OccupancyGrid& map);
 
 protected:
-  HectorDebugInfoProvider* debugInfoProvider;
-  HectorDrawings* hectorDrawings;
+  std::unique_ptr<HectorDebugInfoProvider> mDebugInfoProvider;
+  std::unique_ptr<HectorDrawings> mHectorDrawings;
 
-  int lastGetMapUpdateIndex;
+  int mLastGetMapUpdateIndex;
 
-  ros::NodeHandle node_;
+  ros::NodeHandle mNode;
 
-  ros::Subscriber scanSubscriber_;
-  ros::Subscriber sysMsgSubscriber_;
+  ros::Subscriber mScanSubscriber;
+  ros::Subscriber mSysMsgSubscriber;
 
-  ros::Subscriber mapSubscriber_;
-  message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped>*
-    initial_pose_sub_;
-  tf::MessageFilter<geometry_msgs::PoseWithCovarianceStamped>*
-    initial_pose_filter_;
+  std::unique_ptr<message_filters::Subscriber<
+    geometry_msgs::PoseWithCovarianceStamped>> mInitialPoseSubscriber;
+  std::unique_ptr<tf::MessageFilter<
+    geometry_msgs::PoseWithCovarianceStamped>> mInitialPoseFilter;
 
-  ros::Publisher posePublisher_;
-  ros::Publisher poseUpdatePublisher_;
-  ros::Publisher twistUpdatePublisher_;
-  ros::Publisher odometryPublisher_;
-  ros::Publisher scan_point_cloud_publisher_;
+  ros::Publisher mPosePublisher;
+  ros::Publisher mPoseUpdatePublisher;
+  ros::Publisher mOdometryPublisher;
+  ros::Publisher mScanPointCloudPublisher;
 
-  ros::ServiceServer reset_map_service_;
-  ros::ServiceServer restart_hector_service_;
-  ros::ServiceServer toggle_scan_processing_service_;
+  // ros::ServiceServer mSrvOccupancyGrids;
+  ros::ServiceServer mResetMapService;
+  ros::ServiceServer mRestartHectorService;
+  ros::ServiceServer mToggleScanProcessingService;
 
-  std::vector<MapPublisherContainer> mapPubContainer;
+  std::vector<MapPublisherContainer> mMapPubContainer;
 
-  tf::TransformListener tf_;
-  tf::TransformBroadcaster* tfB_;
+  tf::TransformListener mTf;
+  std::unique_ptr<tf::TransformBroadcaster> mTfBroadcaster;
 
-  laser_geometry::LaserProjection projector_;
+  std::unique_ptr<boost::thread> mMapPublishThread;
 
-  tf::Transform map_to_odom_;
-
-  boost::thread* map__publish_thread_;
-
-  hectorslam::HectorSlamProcessor* slamProcessor;
+  std::unique_ptr<hectorslam::HectorSlamProcessor> mSlamProcessor;
 
   int mNumOfProcessedScans;
   hector_mapping::HectorMappingMetrics mMetricsMsg;
@@ -176,66 +170,58 @@ protected:
   std::unique_ptr<hectorslam::ScanMatcherFPGA> mFPGAScanMatcher;
   std::unique_ptr<hectorslam::ScanMatcherGaussNewton> mGaussNewtonScanMatcher;
 
-  PoseInfoContainer poseInfoContainer_;
+  PoseInfoContainer mPoseInfoContainer;
 
-  sensor_msgs::PointCloud laser_point_cloud_;
+  bool mInitialPoseSet;
+  Eigen::Vector3f mInitialPose;
 
-  ros::Time lastMapPublishTime;
-  ros::Time lastScanTime;
-  Eigen::Vector3f lastSlamPose;
-
-  bool initial_pose_set_;
-  Eigen::Vector3f initial_pose_;
-
-  bool pause_scan_processing_;
+  bool mPauseScanProcessing;
 
   //
   // Parameters
   //
 
-  std::string p_base_frame_;
-  std::string p_map_frame_;
-  std::string p_odom_frame_;
+  std::string mBaseFrame;
+  std::string mMapFrame;
+  std::string mOdomFrame;
 
   // Parameters related to publishing the scanmatcher pose directly via tf
-  bool p_pub_map_scanmatch_transform_;
-  std::string p_tf_map_scanmatch_transform_frame_name_;
+  bool mPubMapToScanMatchTransform;
+  std::string mMapToScanMatchTransformFrameName;
 
-  std::string p_scan_topic_;
-  std::string p_sys_msg_topic_;
+  std::string mScanTopic;
+  std::string mSysMsgTopic;
+  std::string mPoseUpdateTopic;
 
-  std::string p_pose_update_topic_;
-  std::string p_twist_update_topic_;
+  bool mPubDrawings;
+  bool mPubDebugOutput;
+  bool mPubMapToOdomTransform;
+  bool mPubOdometry;
+  bool mAdvertiseMapService;
+  int mScanSubscriberQueueSize;
 
-  bool p_pub_drawings;
-  bool p_pub_debug_output_;
-  bool p_pub_map_odom_transform_;
-  bool p_pub_odometry_;
-  bool p_advertise_map_service_;
-  int p_scan_subscriber_queue_size_;
+  double mUpdateFactorFree;
+  double mUpdateFactorOccupied;
+  double mMapUpdateDistanceThreshold;
+  double mMapUpdateAngleThreshold;
 
-  double p_update_factor_free_;
-  double p_update_factor_occupied_;
-  double p_map_update_distance_threshold_;
-  double p_map_update_angle_threshold_;
+  double mMapResolution;
+  int mMapSize;
+  double mMapStartX;
+  double mMapStartY;
+  int mMapMultiResLevels;
 
-  double p_map_resolution_;
-  int p_map_size_;
-  double p_map_start_x_;
-  double p_map_start_y_;
-  int p_map_multi_res_levels_;
+  double mMapPubPeriod;
 
-  double p_map_pub_period_;
+  bool mUseTfScanTransformation;
+  bool mUseTfPoseStartEstimate;
+  bool mMapWithKnownPoses;
+  bool mTimingOutput;
 
-  bool p_use_tf_scan_transformation_;
-  bool p_use_tf_pose_start_estimate_;
-  bool p_map_with_known_poses_;
-  bool p_timing_output_;
-
-  float p_sqr_laser_min_dist_;
-  float p_sqr_laser_max_dist_;
-  float p_laser_z_min_value_;
-  float p_laser_z_max_value_;
+  float mSquaredLaserMinDist;
+  float mSquaredLaserMaxDist;
+  float mLaserZMinValue;
+  float mLaserZMaxValue;
 };
 
 #endif // HECTOR_SLAM_HECTOR_MAPPING_ROS_H

@@ -31,6 +31,8 @@
 
 #include <ros/ros.h>
 
+#include <Eigen/Dense>
+
 #include "util/HectorDebugInfoInterface.h"
 #include "util/UtilFunctions.h"
 
