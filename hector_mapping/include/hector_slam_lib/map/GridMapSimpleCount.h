@@ -26,9 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __GridMapSimpleCount_h_
-#define __GridMapSimpleCount_h_
-
+#ifndef HECTOR_SLAM_MAP_GRID_MAP_SIMPLE_COUNT_H
+#define HECTOR_SLAM_MAP_GRID_MAP_SIMPLE_COUNT_H
 
 /**
  * Provides a (very) simple count based representation of occupancy
@@ -36,124 +35,70 @@
 class SimpleCountCell
 {
 public:
+  inline void set(float val) { this->simpleOccVal = val; }
+  inline float getValue() const { return this->simpleOccVal; }
 
-  /**
-   * Sets the cell value to val.
-   * @param val The log odds value.
-   */
-  void set(float val)
-  {
-    simpleOccVal = val;
-  }
-
-  /**
-   * Returns the value of the cell.
-   * @return The log odds value.
-   */
-  float getValue() const
-  {
-    return simpleOccVal;
-  }
-
-  /**
-   * Returns wether the cell is occupied.
-   * @return Cell is occupied
-   */
-  bool isOccupied() const
-  {
-    return (simpleOccVal > 0.5f);
-  }
-
-  bool isFree() const
-  {
-    return (simpleOccVal < 0.5f);
-  }
+  inline bool isOccupied() const { return this->simpleOccVal > 0.5f; }
+  inline bool isFree() const { return this->simpleOccVal < 0.5f; }
 
   /**
    * Reset Cell to prior probability.
    */
   void resetGridCell()
   {
-    simpleOccVal = 0.5f;
-    updateIndex = -1;
+    this->simpleOccVal = 0.5f;
+    this->updateIndex = -1;
   }
 
-//protected:
-
 public:
-
-  float simpleOccVal; ///< The log odds representation of occupancy probability.
+  // The log odds representation of occupancy probability.
+  float simpleOccVal;
   int updateIndex;
-
-
 };
 
 /**
- * Provides functions related to a log odds of occupancy probability respresentation for cells in a occupancy grid map.
+ * Provides functions related to a log odds of occupancy probability
+ * respresentation for cells in a occupancy grid map.
  */
 class GridMapSimpleCountFunctions
 {
 public:
-
-  /**
-   * Constructor, sets parameters like free and occupied log odds ratios.
-   */
   GridMapSimpleCountFunctions()
   {
-    updateFreeVal = -0.10f;
-    updateOccVal  =  0.15f;
+    this->updateFreeVal = -0.10f;
+    this->updateOccVal = 0.15f;
 
-    updateFreeLimit = -updateFreeVal + updateFreeVal/100.0f;
-    updateOccLimit  = 1.0f - (updateOccVal + updateOccVal/100.0f);
+    this->updateFreeLimit = -this->updateFreeVal
+      + this->updateFreeVal / 100.0f;
+    this->updateOccLimit = 1.0f - (this->updateOccVal
+      + this->updateOccVal / 100.0f);
   }
 
-  /**
-   * Update cell as occupied
-   * @param cell The cell.
-   */
   void updateSetOccupied(SimpleCountCell& cell) const
   {
-    if (cell.simpleOccVal < updateOccLimit){
-      cell.simpleOccVal += updateOccVal;
-    }
+    if (cell.simpleOccVal < this->updateOccLimit)
+      cell.simpleOccVal += this->updateOccVal;
   }
 
-  /**
-   * Update cell as free
-   * @param cell The cell.
-   */
   void updateSetFree(SimpleCountCell& cell) const
   {
-    if (cell.simpleOccVal > updateFreeLimit){
-      cell.simpleOccVal += updateFreeVal;
-    }
+    if (cell.simpleOccVal > this->updateFreeLimit)
+      cell.simpleOccVal += this->updateFreeVal;
   }
 
   void updateUnsetFree(SimpleCountCell& cell) const
   {
-    cell.simpleOccVal -= updateFreeVal;
+    cell.simpleOccVal -= this->updateFreeVal;
   }
 
-  /**
-   * Get the probability value represented by the grid cell.
-   * @param cell The cell.
-   * @return The probability
-   */
-  float getGridProbability(const SimpleCountCell& cell) const
-  {
-    return cell.simpleOccVal;
-  }
+  inline float getGridProbability(const SimpleCountCell& cell) const
+  { return cell.simpleOccVal; }
 
 protected:
-
   float updateFreeVal;
   float updateOccVal;
-
   float updateFreeLimit;
   float updateOccLimit;
-
-
 };
 
-
-#endif
+#endif // HECTOR_SLAM_MAP_GRID_MAP_SIMPLE_COUNT_H

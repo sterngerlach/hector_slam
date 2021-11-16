@@ -26,13 +26,13 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __OccGridMapUtil_h_
-#define __OccGridMapUtil_h_
+#ifndef HECTOR_SLAM_MAP_OCC_GRID_MAP_UTIL_H
+#define HECTOR_SLAM_MAP_OCC_GRID_MAP_UTIL_H
 
 #include <cmath>
 
-#include "../scan/DataPointContainer.h"
-#include "../util/UtilFunctions.h"
+#include "scan/DataPointContainer.h"
+#include "util/UtilFunctions.h"
 
 namespace hectorslam {
 
@@ -40,31 +40,28 @@ template<typename ConcreteOccGridMap, typename ConcreteCacheMethod>
 class OccGridMapUtil
 {
 public:
-
-  OccGridMapUtil(const ConcreteOccGridMap* gridMap)
-    : concreteGridMap(gridMap)
+  OccGridMapUtil(const ConcreteOccGridMap* gridMap) :
+    concreteGridMap(gridMap)
   {
-    mapObstacleThreshold = gridMap->getObstacleThreshold();
-    cacheMethod.setMapSize(gridMap->getMapDimensions());
+    this->mapObstacleThreshold = gridMap->getObstacleThreshold();
+    this->cacheMethod.setMapSize(gridMap->getMapDimensions());
   }
 
-  ~OccGridMapUtil()
-  {}
+  ~OccGridMapUtil() { }
 
 public:
-
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   inline Eigen::Vector3f getWorldCoordsPose(
     const Eigen::Vector3f& mapPose) const
-  { return this->concreteGridMap->getWorldCoordsPose(mapPose); };
+  { return this->concreteGridMap->getWorldCoordsPose(mapPose); }
   inline Eigen::Vector3f getMapCoordsPose(
     const Eigen::Vector3f& worldPose) const
-  { return this->concreteGridMap->getMapCoordsPose(worldPose); };
+  { return this->concreteGridMap->getMapCoordsPose(worldPose); }
 
   inline Eigen::Vector2f getWorldCoordsPoint(
     const Eigen::Vector2f& mapPoint) const
-  { return this->concreteGridMap->getWorldCoords(mapPoint); };
+  { return this->concreteGridMap->getWorldCoords(mapPoint); }
 
   inline int getMapSizeX() const
   { return this->concreteGridMap->getSizeX(); }
@@ -86,29 +83,33 @@ public:
   {
     float cost = 0.0f;
 
-    int size = dataPoints.getSize();
+    const int size = dataPoints.getSize();
 
-    Eigen::Affine2f transform(getTransformForState(pose));
+    Eigen::Affine2f transform = this->getTransformForState(pose);
 
-    float sinRot = sin(pose[2]);
-    float cosRot = cos(pose[2]);
+    const float sinRot = std::sin(pose[2]);
+    const float cosRot = std::cos(pose[2]);
 
     H = Eigen::Matrix3f::Zero();
     dTr = Eigen::Vector3f::Zero();
 
     for (int i = 0; i < size; ++i) {
+      const Eigen::Vector2f& currPoint = dataPoints.getVecEntry(i);
 
-      const Eigen::Vector2f& currPoint (dataPoints.getVecEntry(i));
+      const Eigen::Vector3f transformedPointData =
+        interpMapValueWithDerivatives(transform * currPoint);
 
-      Eigen::Vector3f transformedPointData(interpMapValueWithDerivatives(transform * currPoint));
-
-      float funVal = 1.0f - transformedPointData[0];
+      const float funVal = 1.0f - transformedPointData[0];
       cost += funVal;
 
       dTr[0] += transformedPointData[1] * funVal;
       dTr[1] += transformedPointData[2] * funVal;
 
-      float rotDeriv = ((-sinRot * currPoint.x() - cosRot * currPoint.y()) * transformedPointData[1] + (cosRot * currPoint.x() - sinRot * currPoint.y()) * transformedPointData[2]);
+      const float rotDeriv =
+        (-sinRot * currPoint.x() - cosRot * currPoint.y())
+        * transformedPointData[1]
+        + (cosRot * currPoint.x() - sinRot * currPoint.y())
+        * transformedPointData[2];
 
       dTr[2] += rotDeriv * funVal;
 
@@ -132,7 +133,6 @@ public:
   Eigen::Matrix3f getCovarianceForPose(const Eigen::Vector3f& mapPose,
                                        const DataContainer& dataPoints) const
   {
-
     float deltaTransX = 1.5f;
     float deltaTransY = 1.5f;
     float deltaAng = 0.05f;
@@ -153,48 +153,47 @@ public:
 
     Eigen::Matrix<float, 7, 1> likelihoods;
 
-    likelihoods[0] = getLikelihoodForState(Eigen::Vector3f(x + deltaTransX, y, ang), dataPoints);
-    likelihoods[1] = getLikelihoodForState(Eigen::Vector3f(x - deltaTransX, y, ang), dataPoints);
-    likelihoods[2] = getLikelihoodForState(Eigen::Vector3f(x, y + deltaTransY, ang), dataPoints);
-    likelihoods[3] = getLikelihoodForState(Eigen::Vector3f(x, y - deltaTransY, ang), dataPoints);
-    likelihoods[4] = getLikelihoodForState(Eigen::Vector3f(x, y, ang + deltaAng), dataPoints);
-    likelihoods[5] = getLikelihoodForState(Eigen::Vector3f(x, y, ang - deltaAng), dataPoints);
-    likelihoods[6] = getLikelihoodForState(Eigen::Vector3f(x, y, ang), dataPoints);
+    likelihoods[0] = this->getLikelihoodForState(
+      Eigen::Vector3f(x + deltaTransX, y, ang), dataPoints);
+    likelihoods[1] = this->getLikelihoodForState(
+      Eigen::Vector3f(x - deltaTransX, y, ang), dataPoints);
+    likelihoods[2] = this->getLikelihoodForState(
+      Eigen::Vector3f(x, y + deltaTransY, ang), dataPoints);
+    likelihoods[3] = this->getLikelihoodForState(
+      Eigen::Vector3f(x, y - deltaTransY, ang), dataPoints);
+    likelihoods[4] = this->getLikelihoodForState(
+      Eigen::Vector3f(x, y, ang + deltaAng), dataPoints);
+    likelihoods[5] = this->getLikelihoodForState(
+      Eigen::Vector3f(x, y, ang - deltaAng), dataPoints);
+    likelihoods[6] = this->getLikelihoodForState(
+      Eigen::Vector3f(x, y, ang), dataPoints);
 
-    float invLhNormalizer = 1 / likelihoods.sum();
+    float invLhNormalizer = 1.0f / likelihoods.sum();
 
-    // std::cout << "\n lhs:\n" << likelihoods;
+    Eigen::Vector3f mean = Eigen::Vector3f::Zero();
 
-    Eigen::Vector3f mean(Eigen::Vector3f::Zero());
-
-    for (int i = 0; i < 7; ++i) {
-      mean += (sigmaPoints.block<3, 1>(0, i) * likelihoods[i]);
-    }
+    for (int i = 0; i < 7; ++i)
+      mean += sigmaPoints.block<3, 1>(0, i) * likelihoods[i];
 
     mean *= invLhNormalizer;
 
-    Eigen::Matrix3f covMatrixMap(Eigen::Matrix3f::Zero());
+    Eigen::Matrix3f covMatrixMap = Eigen::Matrix3f::Zero();
 
     for (int i = 0; i < 7; ++i) {
-      Eigen::Vector3f sigPointMinusMean(sigmaPoints.block<3, 1>(0, i) - mean);
-      covMatrixMap += (likelihoods[i] * invLhNormalizer) * (sigPointMinusMean * (sigPointMinusMean.transpose()));
+      Eigen::Vector3f sigPointMinusMean = sigmaPoints.block<3, 1>(0, i) - mean;
+      covMatrixMap += (likelihoods[i] * invLhNormalizer)
+        * (sigPointMinusMean * sigPointMinusMean.transpose());
     }
 
     return covMatrixMap;
-
-    //covMatrix.cwise() * invLhNormalizer;
-    //transform = getTransformForState(Eigen::Vector3f(x-deltaTrans, y, ang);
   }
 
   Eigen::Matrix3f getCovMatrixWorldCoords(
     const Eigen::Matrix3f& covMatMap) const
   {
-
-    //std::cout << "\nCovMap:\n" << covMatMap;
-
     Eigen::Matrix3f covMatWorld;
 
-    float scaleTrans = concreteGridMap->getCellLength();
+    float scaleTrans = this->concreteGridMap->getCellLength();
     float scaleTransSq = util::sqr(scaleTrans);
 
     covMatWorld(0, 0) = covMatMap(0, 0) * scaleTransSq;
@@ -217,205 +216,174 @@ public:
   float getLikelihoodForState(const Eigen::Vector3f& state,
                               const DataContainer& dataPoints) const
   {
-    float resid = getResidualForState(state, dataPoints);
-
-    return getLikelihoodForResidual(resid, dataPoints.getSize());
+    float resid = this->getResidualForState(state, dataPoints);
+    return this->getLikelihoodForResidual(resid, dataPoints.getSize());
   }
 
   float getLikelihoodForResidual(float residual, int numDataPoints) const
-  {
-    float numDataPointsA = static_cast<int>(numDataPoints);
-    float sizef = static_cast<float>(numDataPointsA);
-
-    return 1 - (residual / sizef);
-  }
+  { return 1.0f - (residual / static_cast<float>(numDataPoints)); }
 
   float getResidualForState(const Eigen::Vector3f& state,
                             const DataContainer& dataPoints) const
   {
-    int size = dataPoints.getSize();
+    const int size = dataPoints.getSize();
 
     int stepSize = 1;
     float residual = 0.0f;
 
-
-    Eigen::Affine2f transform(getTransformForState(state));
+    const Eigen::Affine2f transform = this->getTransformForState(state);
 
     for (int i = 0; i < size; i += stepSize) {
-
-      float funval = 1.0f - interpMapValue(transform * dataPoints.getVecEntry(i));
+      const float funval = 1.0f - this->interpMapValue(
+        transform * dataPoints.getVecEntry(i));
       residual += funval;
     }
 
     return residual;
   }
 
-  float getUnfilteredGridPoint(Eigen::Vector2i& gridCoords) const
-  {
-    return (concreteGridMap->getGridProbabilityMap(gridCoords.x(), gridCoords.y()));
-  }
+  inline float getUnfilteredGridPoint(Eigen::Vector2i& gridCoords) const
+  { return this->concreteGridMap->getGridProbabilityMap(
+    gridCoords.x(), gridCoords.y()); }
 
-  float getUnfilteredGridPoint(int index) const
-  {
-    return (concreteGridMap->getGridProbabilityMap(index));
-  }
+  inline float getUnfilteredGridPoint(int index) const
+  { return this->concreteGridMap->getGridProbabilityMap(index); }
 
   float interpMapValue(const Eigen::Vector2f& coords) const
   {
-    //check if coords are within map limits.
-    if (concreteGridMap->pointOutOfMapBounds(coords)){
+    // Check if coords are within map limits.
+    if (this->concreteGridMap->pointOutOfMapBounds(coords))
       return 0.0f;
-    }
 
     Eigen::Vector4f intensities;
 
-    //map coords are alway positive, floor them by casting to int
-    Eigen::Vector2i indMin(coords.cast<int>());
+    // Map coords are alway positive, floor them by casting to int
+    const Eigen::Vector2i indMin = coords.cast<int>();
+    // Get factors for bilinear interpolation
+    const Eigen::Vector2f factors = coords - indMin.cast<float>();
 
-    //get factors for bilinear interpolation
-    Eigen::Vector2f factors(coords - indMin.cast<float>());
-
-    int sizeX = concreteGridMap->getSizeX();
+    const int sizeX = this->concreteGridMap->getSizeX();
 
     int index = indMin[1] * sizeX + indMin[0];
 
-    // get grid values for the 4 grid points surrounding the current coords. Check cached data first, if not contained
-    // filter gridPoint with gaussian and store in cache.
-    if (!cacheMethod.containsCachedData(index, intensities[0])) {
-      intensities[0] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[0]);
+    // Get grid values for the 4 grid points surrounding the current coords.
+    // Check cached data first, if not contained filter gridPoint
+    // with gaussian and store in cache.
+    if (!this->cacheMethod.containsCachedData(index, intensities[0])) {
+      intensities[0] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[0]);
     }
 
     ++index;
 
-    if (!cacheMethod.containsCachedData(index, intensities[1])) {
-      intensities[1] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[1]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[1])) {
+      intensities[1] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[1]);
     }
 
-    index += sizeX-1;
+    index += sizeX - 1;
 
-    if (!cacheMethod.containsCachedData(index, intensities[2])) {
-      intensities[2] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[2]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[2])) {
+      intensities[2] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[2]);
     }
 
     ++index;
 
-    if (!cacheMethod.containsCachedData(index, intensities[3])) {
-      intensities[3] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[3]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[3])) {
+      intensities[3] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[3]);
     }
 
-    float xFacInv = (1.0f - factors[0]);
-    float yFacInv = (1.0f - factors[1]);
+    const float xFacInv = 1.0f - factors[0];
+    const float yFacInv = 1.0f - factors[1];
 
-    return
-      ((intensities[0] * xFacInv + intensities[1] * factors[0]) * (yFacInv)) +
-      ((intensities[2] * xFacInv + intensities[3] * factors[0]) * (factors[1]));
-
+    return ((intensities[0] * xFacInv + intensities[1] * factors[0]) * yFacInv)
+      + ((intensities[2] * xFacInv + intensities[3] * factors[0]) * factors[1]);
   }
 
   Eigen::Vector3f interpMapValueWithDerivatives(
     const Eigen::Vector2f& coords) const
   {
-    //check if coords are within map limits.
-    if (concreteGridMap->pointOutOfMapBounds(coords)){
-      return Eigen::Vector3f(0.0f, 0.0f, 0.0f);
-    }
+    // Check if coords are within map limits.
+    if (this->concreteGridMap->pointOutOfMapBounds(coords))
+      return Eigen::Vector3f::Zero();
 
     Eigen::Vector4f intensities;
 
-    //map coords are always positive, floor them by casting to int
-    Eigen::Vector2i indMin(coords.cast<int>());
+    // Map coords are always positive, floor them by casting to int
+    const Eigen::Vector2i indMin = coords.cast<int>();
+    // Get factors for bilinear interpolation
+    const Eigen::Vector2f factors = coords - indMin.cast<float>();
 
-    //get factors for bilinear interpolation
-    Eigen::Vector2f factors(coords - indMin.cast<float>());
-
-    int sizeX = concreteGridMap->getSizeX();
+    const int sizeX = this->concreteGridMap->getSizeX();
 
     int index = indMin[1] * sizeX + indMin[0];
 
-    // get grid values for the 4 grid points surrounding the current coords. Check cached data first, if not contained
-    // filter gridPoint with gaussian and store in cache.
-    if (!cacheMethod.containsCachedData(index, intensities[0])) {
-      intensities[0] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[0]);
+    // Get grid values for the 4 grid points surrounding the current coords.
+    // Check cached data first, if not contained filter gridPoint
+    // with gaussian and store in cache.
+    if (!this->cacheMethod.containsCachedData(index, intensities[0])) {
+      intensities[0] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[0]);
     }
 
     ++index;
 
-    if (!cacheMethod.containsCachedData(index, intensities[1])) {
-      intensities[1] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[1]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[1])) {
+      intensities[1] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[1]);
     }
 
-    index += sizeX-1;
+    index += sizeX - 1;
 
-    if (!cacheMethod.containsCachedData(index, intensities[2])) {
-      intensities[2] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[2]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[2])) {
+      intensities[2] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[2]);
     }
 
     ++index;
 
-    if (!cacheMethod.containsCachedData(index, intensities[3])) {
-      intensities[3] = getUnfilteredGridPoint(index);
-      cacheMethod.cacheData(index, intensities[3]);
+    if (!this->cacheMethod.containsCachedData(index, intensities[3])) {
+      intensities[3] = this->getUnfilteredGridPoint(index);
+      this->cacheMethod.cacheData(index, intensities[3]);
     }
 
     // `intensities` represent the occupancy probability values at the
     // grid cells (x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)
-    float dx1 = intensities[0] - intensities[1];
-    float dx2 = intensities[2] - intensities[3];
+    const float dx1 = intensities[0] - intensities[1];
+    const float dx2 = intensities[2] - intensities[3];
 
-    float dy1 = intensities[0] - intensities[2];
-    float dy2 = intensities[1] - intensities[3];
+    const float dy1 = intensities[0] - intensities[2];
+    const float dy2 = intensities[1] - intensities[3];
 
-    float xFacInv = (1.0f - factors[0]);
-    float yFacInv = (1.0f - factors[1]);
+    const float xFacInv = 1.0f - factors[0];
+    const float yFacInv = 1.0f - factors[1];
 
-    return Eigen::Vector3f(
-      ((intensities[0] * xFacInv + intensities[1] * factors[0]) * (yFacInv)) +
-      ((intensities[2] * xFacInv + intensities[3] * factors[0]) * (factors[1])),
-      -((dx1 * yFacInv) + (dx2 * factors[1])),
-      -((dy1 * xFacInv) + (dy2 * factors[0]))
-    );
+    return Eigen::Vector3f {
+      ((intensities[0] * xFacInv + intensities[1] * factors[0]) * yFacInv)
+      + ((intensities[2] * xFacInv + intensities[3] * factors[0]) * factors[1]),
+      -(dx1 * yFacInv + dx2 * factors[1]),
+      -(dy1 * xFacInv + dy2 * factors[0]) };
   }
 
-  Eigen::Affine2f getTransformForState(const Eigen::Vector3f& transVector) const
-  {
-    return Eigen::Translation2f(transVector[0], transVector[1]) * Eigen::Rotation2Df(transVector[2]);
-  }
+  inline Eigen::Affine2f getTransformForState(
+    const Eigen::Vector3f& transVector) const
+  { return Eigen::Translation2f(transVector[0], transVector[1])
+           * Eigen::Rotation2Df(transVector[2]); }
 
-  Eigen::Translation2f getTranslationForState(const Eigen::Vector3f& transVector) const
-  {
-    return Eigen::Translation2f(transVector[0], transVector[1]);
-  }
+  inline Eigen::Translation2f getTranslationForState(
+    const Eigen::Vector3f& transVector) const
+  { return Eigen::Translation2f(transVector[0], transVector[1]); }
 
-  void resetCachedData()
-  {
-    cacheMethod.resetCache();
-  }
-
-  void resetSamplePoints()
-  {
-    samplePoints.clear();
-  }
-
-  const std::vector<Eigen::Vector3f>& getSamplePoints() const
-  {
-    return samplePoints;
-  }
+  inline void resetCachedData() { this->cacheMethod.resetCache(); }
 
 protected:
   mutable ConcreteCacheMethod cacheMethod;
   const ConcreteOccGridMap* concreteGridMap;
-  std::vector<Eigen::Vector3f> samplePoints;
   float mapObstacleThreshold;
 };
 
-}
-
+} // namespace hectorslam
 
 #endif

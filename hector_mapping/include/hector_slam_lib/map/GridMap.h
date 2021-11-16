@@ -26,8 +26,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __GridMap_h_
-#define __GridMap_h_
+#ifndef HECTOR_SLAM_MAP_GRID_MAP_H
+#define HECTOR_SLAM_MAP_GRID_MAP_H
 
 #include "map/GridMapLogOdds.h"
 #include "map/GridMapReflectanceCount.h"
@@ -43,6 +43,6 @@ using GridMapUtil = OccGridMapUtilConfig<GridMap>;
 // typedef OccGridMapBase<SimpleCountCell, GridMapSimpleCountFunctions> GridMap;
 // typedef OccGridMapBase<ReflectanceCell, GridMapReflectanceFunctions> GridMap;
 
-}
+} // namespace hectorslam
 
-#endif
+#endif // HECTOR_SLAM_MAP_GRID_MAP_H

@@ -26,62 +26,60 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __GridMapCacheArray_h_
-#define __GridMapCacheArray_h_
+#ifndef HECTOR_SLAM_MAP_GRID_MAP_CACHE_ARRAY_H
+#define HECTOR_SLAM_MAP_GRID_MAP_CACHE_ARRAY_H
 
 #include <Eigen/Core>
 
-class CachedMapElement
+struct CachedMapElement
 {
-public:
   float val;
   int index;
+
+  inline void set(const int newIndex, const float newValue)
+  {
+    this->index = newIndex;
+    this->val = newValue;
+  }
 };
 
 /**
- * Caches filtered grid map accesses in a two dimensional array of the same size as the map.
+ * Caches filtered grid map accesses in a two dimensional array
+ * of the same size as the map.
  */
 class GridMapCacheArray
 {
 public:
-
   /**
    * Constructor
    */
-  GridMapCacheArray()
-    : cacheArray(0)
-    , arrayDimensions(-1,-1)
-  {
-    currCacheIndex = 0;
-  }
+  GridMapCacheArray() :
+    cacheArray(nullptr),
+    currCacheIndex(0),
+    arrayDimensions(-1, -1) { }
 
   /**
    * Destructor
    */
-  ~GridMapCacheArray()
-  {
-    deleteCacheArray();
-  }
+  ~GridMapCacheArray() { this->deleteCacheArray(); }
 
   /**
    * Resets/deletes the cached data
    */
-  void resetCache()
-  {
-    currCacheIndex++;
-  }
+  void resetCache() { this->currCacheIndex++; }
 
   /**
-   * Checks wether cached data for coords is available. If this is the case, writes data into val.
+   * Checks wether cached data for coords is available.
+   * If this is the case, writes data into val.
    * @param coords The coordinates
    * @param val Reference to a float the data is written to if available
    * @return Indicates if cached data is available
    */
   bool containsCachedData(int index, float& val)
   {
-    const CachedMapElement& elem (cacheArray[index]);
+    const CachedMapElement& elem = this->cacheArray[index];
 
-    if (elem.index == currCacheIndex) {
+    if (elem.index == this->currCacheIndex) {
       val = elem.val;
       return true;
     } else {
@@ -95,50 +93,35 @@ public:
    * @param val The value to be cached for coordinates.
    */
   void cacheData(int index, float val)
-  {
-    CachedMapElement& elem (cacheArray[index]);
-    elem.index = currCacheIndex;
-    elem.val = val;
-  }
+  { this->cacheArray[index].set(this->currCacheIndex, val); }
 
   /**
    * Sets the map size and resizes the cache array accordingly
    * @param sizeIn The map size.
    */
   void setMapSize(const Eigen::Vector2i& newDimensions)
-  {
-    setArraySize(newDimensions);
-  }
+  { this->setArraySize(newDimensions); }
 
 protected:
-
   /**
    * Creates a cache array of size sizeIn.
    * @param sizeIn The size of the array
    */
   void createCacheArray(const Eigen::Vector2i& newDimensions)
   {
-    arrayDimensions = newDimensions;
+    this->arrayDimensions = newDimensions;
 
-    int sizeX = arrayDimensions[0];
-    int sizeY = arrayDimensions[1];
+    const int size = this->arrayDimensions.x() * this->arrayDimensions.y();
+    this->cacheArray = new CachedMapElement[size];
 
-    int size = sizeX * sizeY;
-
-    cacheArray = new CachedMapElement [size];
-
-    for (int x = 0; x < size; ++x) {
-      cacheArray[x].index = -1;
-    }
+    for (int x = 0; x < size; ++x)
+      this->cacheArray[x].index = -1;
   }
 
   /**
    * Deletes the existing cache array.
    */
-  void deleteCacheArray()
-  {
-    delete[] cacheArray;
-  }
+  void deleteCacheArray() { delete[] this->cacheArray; }
 
   /**
    * Sets a new cache array size
@@ -146,22 +129,21 @@ protected:
   void setArraySize(const Eigen::Vector2i& newDimensions)
   {
     if (this->arrayDimensions != newDimensions) {
-      if (cacheArray != 0) {
-        deleteCacheArray();
-        cacheArray = 0;
+      if (this->cacheArray != nullptr) {
+        this->deleteCacheArray();
+        this->cacheArray = nullptr;
       }
-      createCacheArray(newDimensions);
+      this->createCacheArray(newDimensions);
     }
   }
 
 protected:
-
-  CachedMapElement* cacheArray;    ///< Array used for caching data.
-  int currCacheIndex;              ///< The cache iteration index value
-
-  Eigen::Vector2i arrayDimensions; ///< The size of the array
-
+  // Array used for caching data.
+  CachedMapElement* cacheArray;
+  // The cache iteration index value
+  int currCacheIndex;
+  // The size of the array
+  Eigen::Vector2i arrayDimensions;
 };
 
-
-#endif
+#endif // HECTOR_SLAM_MAP_GRID_MAP_CACHE_ARRAY_H

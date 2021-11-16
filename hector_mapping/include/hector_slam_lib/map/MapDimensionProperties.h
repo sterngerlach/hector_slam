@@ -26,67 +26,82 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef __MapDimensionProperties_h_
-#define __MapDimensionProperties_h_
+#ifndef HECTOR_SLAM_MAP_DIMENSION_PROPERTIES_H
+#define HECTOR_SLAM_MAP_DIMENSION_PROPERTIES_H
+
+#include <Eigen/Core>
 
 class MapDimensionProperties
 {
 public:
-  MapDimensionProperties()
-    : topLeftOffset(-1.0f,-1.0f)
-    , mapDimensions(-1,-1)
-    , cellLength(-1.0f)
-  {}
+  MapDimensionProperties() :
+    topLeftOffset(-1.0f, -1.0f),
+    mapDimensions(-1, -1),
+    cellLength(-1.0f) { }
 
-
-  MapDimensionProperties(const Eigen::Vector2f& topLeftOffsetIn, const Eigen::Vector2i& mapDimensionsIn, float cellLengthIn)
-    : topLeftOffset(topLeftOffsetIn)
-    , mapDimensions(mapDimensionsIn)
-    , cellLength(cellLengthIn)
+  MapDimensionProperties(const Eigen::Vector2f& topLeftOffsetIn,
+                         const Eigen::Vector2i& mapDimensionsIn,
+                         const float cellLengthIn) :
+    topLeftOffset(topLeftOffsetIn),
+    mapDimensions(mapDimensionsIn),
+    cellLength(cellLengthIn)
   {
-    mapLimitsf = (mapDimensionsIn.cast<float>()).array() - 1.0f;
+    this->mapLimitsf = mapDimensionsIn.cast<float>().array() - 1.0f;
   }
 
-  bool operator==(const MapDimensionProperties& other) const
+  inline bool operator==(const MapDimensionProperties& other) const
   {
-    return (topLeftOffset == other.topLeftOffset) && (mapDimensions == other.mapDimensions) && (cellLength == other.cellLength);
+    return this->topLeftOffset == other.topLeftOffset &&
+           this->mapDimensions == other.mapDimensions &&
+           this->cellLength == other.cellLength;
   }
 
-  bool hasEqualDimensionProperties(const MapDimensionProperties& other) const
+  inline bool operator!=(const MapDimensionProperties& other) const
+  { return !this->operator==(other); }
+
+  inline bool hasEqualDimensionProperties(
+    const MapDimensionProperties& other) const
   {
-    return (mapDimensions == other.mapDimensions);
+    return this->mapDimensions == other.mapDimensions;
   }
 
-  bool hasEqualTransformationProperties(const MapDimensionProperties& other) const
+  inline bool hasEqualTransformationProperties(
+    const MapDimensionProperties& other) const
   {
-     return  (topLeftOffset == other.topLeftOffset) && (cellLength == other.cellLength);
+     return this->topLeftOffset == other.topLeftOffset &&
+            this->cellLength == other.cellLength;
   }
 
-  bool pointOutOfMapBounds(const Eigen::Vector2f& coords) const
+  inline bool pointOutOfMapBounds(const Eigen::Vector2f& coords) const
   {
-    return ((coords[0] < 0.0f) || (coords[0] > mapLimitsf[0]) || (coords[1] < 0.0f) || (coords[1] > mapLimitsf[1]));
+    return coords[0] < 0.0f ||
+           coords[1] < 0.0f ||
+           coords[0] > this->mapLimitsf[0] ||
+           coords[1] > this->mapLimitsf[1];
   }
 
-  void setMapCellDims(const Eigen::Vector2i& newDims)
+  inline void setMapCellDims(const Eigen::Vector2i& newDims)
   {
-    mapDimensions = newDims;
-    mapLimitsf = (newDims.cast<float>()).array() - 2.0f;
+    this->mapDimensions = newDims;
+    this->mapLimitsf = newDims.cast<float>().array() - 2.0f;
   }
 
-  void setTopLeftOffset(const Eigen::Vector2f& topLeftOffsetIn)
+  inline void setTopLeftOffset(const Eigen::Vector2f& topLeftOffsetIn)
   {
-    topLeftOffset = topLeftOffsetIn;
+    this->topLeftOffset = topLeftOffsetIn;
   }
 
-  void setSizeX(int sX) { mapDimensions[0] = sX; };
-  void setSizeY(int sY) { mapDimensions[1] = sY; };
-  void setCellLength(float cl) { cellLength = cl; };
+  inline void setSizeX(int sX) { this->mapDimensions[0] = sX; }
+  inline void setSizeY(int sY) { this->mapDimensions[1] = sY; }
+  inline void setCellLength(float cl) { this->cellLength = cl; }
 
-  const Eigen::Vector2f& getTopLeftOffset() const { return topLeftOffset; };
-  const Eigen::Vector2i& getMapDimensions() const { return mapDimensions; };
-  int getSizeX() const { return mapDimensions[0]; };
-  int getSizeY() const { return mapDimensions[1]; };
-  float getCellLength() const { return cellLength; };
+  inline const Eigen::Vector2f& getTopLeftOffset() const
+  { return this->topLeftOffset; }
+  inline const Eigen::Vector2i& getMapDimensions() const
+  { return this->mapDimensions; }
+  inline int getSizeX() const { return this->mapDimensions[0]; }
+  inline int getSizeY() const { return this->mapDimensions[1]; }
+  inline float getCellLength() const { return this->cellLength; }
 
 protected:
   Eigen::Vector2f topLeftOffset;
@@ -95,6 +110,4 @@ protected:
   float cellLength;
 };
 
-#endif
-
-
+#endif // HECTOR_SLAM_MAP_DIMENSION_PROPERTIES_H
