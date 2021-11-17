@@ -232,6 +232,8 @@ HectorMappingRos::HectorMappingRos() :
   }
 
   // Initialize services
+  this->mSrvOccupancyGrids = this->mNode.advertiseService(
+    "get_occupancy_grids", &HectorMappingRos::occupancyGridsCallback, this);
   this->mResetMapService = this->mNode.advertiseService(
     "reset_map", &HectorMappingRos::resetMapCallback, this);
   this->mRestartHectorService = this->mNode.advertiseService(
@@ -711,18 +713,84 @@ void HectorMappingRos::sysMsgCallback(const std_msgs::String& sysMsg)
   }
 }
 
-bool HectorMappingRos::mapCallback(
-  nav_msgs::GetMap::Request& req,
-  nav_msgs::GetMap::Response& res)
+bool HectorMappingRos::occupancyGridsCallback(
+  GetOccupancyGrids::Request& request,
+  GetOccupancyGrids::Response& response)
+{
+  ROS_INFO("HectorMappingRos: Service for occupancy grids called");
+
+  const int numOfOccupancyGrids = this->mSlamProcessor->getMapLevels();
+
+  response.occupancy_grids.clear();
+  response.occupancy_grids.reserve(numOfOccupancyGrids);
+
+  for (int i = 0; i < numOfOccupancyGrids; ++i) {
+    const auto& gridMap = this->mSlamProcessor->getGridMap(i);
+    auto* mapMutex = this->mSlamProcessor->getMapMutex(i);
+
+    if (mapMutex != nullptr)
+      mapMutex->lockMap();
+
+    // `origin` points to the center of the grid cell, so convert to the
+    // top-left of the grid cell
+    Eigen::Vector2f origin = gridMap.getWorldCoords(Eigen::Vector2f::Zero());
+    origin.array() -= gridMap.getCellLength() * 0.5f;
+
+    // Fill the information for `nav_msgs::OccupancyGrid`
+    nav_msgs::OccupancyGrid occupancyGrid;
+    occupancyGrid.header.frame_id = this->mMapFrame;
+    occupancyGrid.header.stamp = ros::Time::now();
+
+    occupancyGrid.info.origin.position.x = origin.x();
+    occupancyGrid.info.origin.position.y = origin.y();
+    occupancyGrid.info.origin.position.z = 0.0;
+    occupancyGrid.info.origin.orientation.x = 0.0;
+    occupancyGrid.info.origin.orientation.y = 0.0;
+    occupancyGrid.info.origin.orientation.z = 0.0;
+    occupancyGrid.info.origin.orientation.w = 1.0;
+
+    occupancyGrid.info.resolution = gridMap.getCellLength();
+    occupancyGrid.info.width = gridMap.getSizeX();
+    occupancyGrid.info.height = gridMap.getSizeY();
+
+    // Convert the grid map to `nav_msgs::OccupancyGrid`
+    const int numOfValues = gridMap.getSizeX() * gridMap.getSizeY();
+    occupancyGrid.data.resize(numOfValues);
+
+    const float unknownProbability = gridMap.getObstacleThreshold();
+
+    for (int i = 0; i < numOfValues; ++i) {
+      const float probability = gridMap.getGridProbabilityMap(i);
+
+      if (probability == unknownProbability)
+        occupancyGrid.data[i] = -1;
+      else
+        occupancyGrid.data[i] = static_cast<std::int8_t>(
+          100.0f * std::min(1.0f, std::max(probability, 0.0f)));
+    }
+
+    if (mapMutex != nullptr)
+      mapMutex->unlockMap();
+
+    // Append the occupancy grid
+    response.occupancy_grids.push_back(std::move(occupancyGrid));
+    // Append the resolution level
+    response.resolution_levels.push_back(i);
+  }
+
+  return true;
+}
+
+bool HectorMappingRos::mapCallback(nav_msgs::GetMap::Request& req,
+                                   nav_msgs::GetMap::Response& res)
 {
   ROS_INFO("HectorMappingRos: Map service called");
   res = this->mMapPubContainer[0].map_;
   return true;
 }
 
-bool HectorMappingRos::resetMapCallback(
-  std_srvs::Trigger::Request& req,
-  std_srvs::Trigger::Response& res)
+bool HectorMappingRos::resetMapCallback(std_srvs::Trigger::Request& req,
+                                        std_srvs::Trigger::Response& res)
 {
   ROS_INFO("HectorMappingRos: Reset map service called");
   this->mSlamProcessor->reset();

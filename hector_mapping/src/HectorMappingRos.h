@@ -44,6 +44,7 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/message_filter.h>
 
+#include "hector_mapping/GetOccupancyGrids.h"
 #include "hector_mapping/ResetMapping.h"
 #include "hector_mapping/HectorMappingMetrics.h"
 
@@ -87,6 +88,9 @@ public:
   void scanCallback(const sensor_msgs::LaserScan& scan);
   void sysMsgCallback(const std_msgs::String& string);
 
+  bool occupancyGridsCallback(
+    hector_mapping::GetOccupancyGrids::Request& request,
+    hector_mapping::GetOccupancyGrids::Response& response);
   bool mapCallback(nav_msgs::GetMap::Request &req,
                    nav_msgs::GetMap::Response &res);
   bool resetMapCallback(std_srvs::Trigger::Request &req,
@@ -146,7 +150,7 @@ protected:
   ros::Publisher mOdometryPublisher;
   ros::Publisher mScanPointCloudPublisher;
 
-  // ros::ServiceServer mSrvOccupancyGrids;
+  ros::ServiceServer mSrvOccupancyGrids;
   ros::ServiceServer mResetMapService;
   ros::ServiceServer mRestartHectorService;
   ros::ServiceServer mToggleScanProcessingService;

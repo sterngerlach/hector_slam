@@ -1,0 +1,6 @@
+
+# GetOccupancyGrids.srv
+
+---
+nav_msgs/OccupancyGrid[] occupancy_grids
+int32[] resolution_levels

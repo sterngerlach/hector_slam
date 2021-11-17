@@ -33,12 +33,14 @@ add_message_files(
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
+  GetOccupancyGrids.srv
   ResetMapping.srv
 )
 
 generate_messages(
   DEPENDENCIES
   geometry_msgs
+  nav_msgs
 )
 
 ###################################
