@@ -48,7 +48,7 @@
 #include "hector_mapping/ScanMatcherCorrelativeMetrics.h"
 #include "hector_mapping/ScanMatcherFPGAMetrics.h"
 #include "hector_mapping/ScanMatcherGaussNewtonMetrics.h"
-#include "output_listener/SaveOutput.h"
+#include "hector_output_listener/SaveOutput.h"
 
 #include "hector_output_listener/bresenham.hpp"
 #include "hector_output_listener/util.hpp"
@@ -63,7 +63,7 @@ using PoseWithCovarianceStamped = geometry_msgs::PoseWithCovarianceStamped;
 using PoseWithCovarianceStampedPtr = PoseWithCovarianceStamped::ConstPtr;
 
 using namespace hector_mapping;
-using namespace output_listener;
+using namespace hector_output_listener;
 
 // Convert scan matching option constant to const char* string
 const char* ScanMatcherOptionToString(const int option)
