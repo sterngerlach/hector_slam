@@ -1,0 +1,7 @@
+
+# SaveOutput.srv
+
+string metrics_file_name
+string map_base_file_name
+---
+bool result
