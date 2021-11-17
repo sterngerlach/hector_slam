@@ -1,8 +1,8 @@
 
 // bresenham.hpp
 
-#ifndef OUTPUT_LISTENER_BRESENHAM_HPP
-#define OUTPUT_LISTENER_BRESENHAM_HPP
+#ifndef HECTOR_OUTPUT_LISTENER_BRESENHAM_HPP
+#define HECTOR_OUTPUT_LISTENER_BRESENHAM_HPP
 
 #include <cmath>
 #include <vector>
@@ -58,4 +58,4 @@ std::vector<Eigen::Vector2i> Bresenham(
   return indices;
 }
 
-#endif // OUTPUT_LISTENER_BRESENHAM_HPP
+#endif // HECTOR_OUTPUT_LISTENER_BRESENHAM_HPP

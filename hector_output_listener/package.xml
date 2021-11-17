@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>output_listener</name>
+  <name>hector_output_listener</name>
   <version>0.0.0</version>
-  <description>The output_listener package</description>
+  <description>The hector_output_listener package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

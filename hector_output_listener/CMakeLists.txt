@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(output_listener)
+project(hector_output_listener)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++17)
@@ -108,7 +108,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
- LIBRARIES output_listener
+ LIBRARIES hector_output_listener
  CATKIN_DEPENDS hector_mapping roscpp rospy
   std_msgs geometry_msgs nav_msgs message_runtime
  DEPENDS PNG Boost EIGEN3

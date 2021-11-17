@@ -1,8 +1,8 @@
 
 // util.hpp
 
-#ifndef OUTPUT_LISTENER_UTIL_HPP
-#define OUTPUT_LISTENER_UTIL_HPP
+#ifndef HECTOR_OUTPUT_LISTENER_UTIL_HPP
+#define HECTOR_OUTPUT_LISTENER_UTIL_HPP
 
 #include <iomanip>
 #include <limits>
@@ -90,4 +90,4 @@ std::string Pose2DCovarianceToString(const boost::array<float, 9>& poseCov)
                        std::numeric_limits<float>::digits10);
 }
 
-#endif // OUTPUT_LISTENER_UTIL_HPP
+#endif // HECTOR_OUTPUT_LISTENER_UTIL_HPP
