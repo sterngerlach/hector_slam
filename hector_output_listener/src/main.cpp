@@ -57,6 +57,8 @@ namespace fs = boost::filesystem;
 namespace gil = boost::gil;
 namespace pt = boost::property_tree;
 
+using OccupancyGrid = nav_msgs::OccupancyGrid;
+using OccupancyGridPtr = OccupancyGrid::ConstPtr;
 using PoseStamped = geometry_msgs::PoseStamped;
 using PoseStampedPtr = PoseStamped::ConstPtr;
 using PoseWithCovarianceStamped = geometry_msgs::PoseWithCovarianceStamped;
@@ -124,6 +126,8 @@ public:
 
   // Handler for the metrics message
   void OnHectorMappingMetrics(const HectorMappingMetrics::ConstPtr& metrics);
+  // Handler for the occupancy grid
+  void OnOccupancyGrid(const OccupancyGridPtr& occupancyGrid);
   // Handler for the pose message
   void OnPose(const PoseStampedPtr& pose);
   // Handler for the pose with covariance message
@@ -139,13 +143,11 @@ private:
   // Save the grid map as PNG
   bool SaveMap(const std::string& baseFileName,
                const nav_msgs::OccupancyGrid& occupancyGrid,
-               const std::vector<Eigen::Vector2f>& trajectory,
-               const int resolutionLevel) const;
+               const std::vector<Eigen::Vector2f>& trajectory) const;
   // Save the grid map metadata as JSON
   void SaveMapMetadata(const std::string& fileName,
                        const nav_msgs::OccupancyGrid& occupancyGrid,
-                       const Eigen::AlignedBox2i& boundingBox,
-                       const int resolutionLevel) const;
+                       const Eigen::AlignedBox2i& boundingBox) const;
 
   // Convert the metrics for Hector SLAM to the JSON tree
   pt::ptree ToJson(const HectorMappingMetrics::ConstPtr& metrics) const;
@@ -172,16 +174,18 @@ private:
 private:
   // Subscriber for the metrics
   ros::Subscriber mSubMetrics;
+  // Subscriber for the occupancy grid
+  ros::Subscriber mSubOccupancyGrid;
   // Subscriber for the current pose (for testing)
   ros::Subscriber mSubPose;
   // Subscriber for the current pose with the covariance (for testing)
   ros::Subscriber mSubPoseWithCovariance;
-  // Service client for receiving the grid map
-  ros::ServiceClient mSrvGridMap;
   // Service server for saving the outputs
   ros::ServiceServer mSrvSaveOutputs;
   // Vector of the metrics
   std::vector<HectorMappingMetrics::ConstPtr> mMetrics;
+  // Occupancy grid
+  OccupancyGridPtr mOccupancyGrid;
   // Node parameter settings
   NodeSettings mSettings;
 };
@@ -234,15 +238,15 @@ bool OutputListenerNode::Setup(ros::NodeHandle& node)
   }
 
   this->mSubMetrics = node.subscribe<HectorMappingMetrics>(
-    "metrics", 10, &OutputListenerNode::OnHectorMappingMetrics, this);
+    "/metrics", 10, &OutputListenerNode::OnHectorMappingMetrics, this);
+  this->mSubOccupancyGrid = node.subscribe<OccupancyGrid>(
+    "/map", 10, &OutputListenerNode::OnOccupancyGrid, this);
   this->mSubPose = node.subscribe<PoseStamped>(
-    "slam_out_pose", 10, &OutputListenerNode::OnPose, this);
+    "/slam_out_pose", 10, &OutputListenerNode::OnPose, this);
   this->mSubPoseWithCovariance = node.subscribe<PoseWithCovarianceStamped>(
-    "poseupdate", 10, &OutputListenerNode::OnPoseWithCovariance, this);
-  this->mSrvGridMap = node.serviceClient<GetOccupancyGrids>(
-    "get_occupancy_grids", false);
+    "/poseupdate", 10, &OutputListenerNode::OnPoseWithCovariance, this);
   this->mSrvSaveOutputs = node.advertiseService(
-    "save_output", &OutputListenerNode::SaveOutput, this);
+    "/save_output", &OutputListenerNode::SaveOutput, this);
 
   ROS_INFO("OutputListenerNode: Started");
 
@@ -258,6 +262,17 @@ void OutputListenerNode::OnHectorMappingMetrics(
 
   if (this->mSettings.mVerbose)
     ROS_INFO("OutputListenerNode: Received new metrics");
+}
+
+// Handler for the occupancy grid
+void OutputListenerNode::OnOccupancyGrid(
+  const OccupancyGridPtr& occupancyGrid)
+{
+  // Copy the occupancy grid
+  this->mOccupancyGrid = occupancyGrid;
+
+  if (this->mSettings.mVerbose)
+    ROS_INFO("OutputListenerNode: Received new occupancy grid");
 }
 
 // Handler for the pose message
@@ -326,14 +341,6 @@ bool OutputListenerNode::SaveOutput(SaveOutput::Request& request,
     return true;
   }
 
-  // Get the occupancy grids by calling the service
-  GetOccupancyGrids srvOccupancyGrid;
-  if (!this->mSrvGridMap.call(srvOccupancyGrid)) {
-    ROS_ERROR("Failed to call the service %s",
-              this->mSrvGridMap.getService().c_str());
-    return true;
-  }
-
   // Build the robot trajectory from the metrics
   std::vector<Eigen::Vector2f> trajectory;
   trajectory.reserve(this->mMetrics.size());
@@ -356,25 +363,11 @@ bool OutputListenerNode::SaveOutput(SaveOutput::Request& request,
   }
 
   // Save the occupancy grid and metadata
-  const auto& occupancyGrids = srvOccupancyGrid.response.occupancy_grids;
-  const auto& resolutionLevels = srvOccupancyGrid.response.resolution_levels;
-
-  if (occupancyGrids.size() != resolutionLevels.size()) {
-    ROS_ERROR("Number of the occupancy grids is different from the number of "
-              "the metadata returned from the Hector SLAM node");
+  if (!this->SaveMap(request.map_base_file_name, *this->mOccupancyGrid,
+                     trajectory)) {
+    ROS_ERROR("Failed to save the occupancy grid to the directory %s",
+              gridMapFileDir.c_str());
     return true;
-  }
-
-  for (std::size_t i = 0; i < occupancyGrids.size(); ++i) {
-    const auto baseFileName = request.map_base_file_name + '-'
-                              + std::to_string(resolutionLevels[i]);
-    if (!this->SaveMap(baseFileName, occupancyGrids[i],
-                       trajectory, resolutionLevels[i])) {
-      ROS_ERROR("Failed to save the occupancy grid (resolution level: %d) "
-                "to the directory %s",
-                resolutionLevels[i], gridMapFileDir.c_str());
-      return true;
-    }
   }
 
   // Mark as the successful
@@ -407,8 +400,7 @@ bool OutputListenerNode::SaveMetrics(const std::string& fileName) const
 bool OutputListenerNode::SaveMap(
   const std::string& baseFileName,
   const nav_msgs::OccupancyGrid& occupancyGrid,
-  const std::vector<Eigen::Vector2f>& trajectory,
-  const int resolutionLevel) const
+  const std::vector<Eigen::Vector2f>& trajectory) const
 {
   // Compute the size of the cropped occupancy grid
   const Eigen::AlignedBox2i entireBox {
@@ -466,8 +458,7 @@ bool OutputListenerNode::SaveMap(
   const std::string metadataFileName = baseFileName + ".json";
 
   try {
-    this->SaveMapMetadata(metadataFileName, occupancyGrid,
-                          boundingBox, resolutionLevel);
+    this->SaveMapMetadata(metadataFileName, occupancyGrid, boundingBox);
     ROS_INFO("Metadata for the occupancy grid is saved to %s",
              metadataFileName.c_str());
   } catch (const pt::json_parser_error& e) {
@@ -484,8 +475,7 @@ bool OutputListenerNode::SaveMap(
 void OutputListenerNode::SaveMapMetadata(
   const std::string& fileName,
   const nav_msgs::OccupancyGrid& occupancyGrid,
-  const Eigen::AlignedBox2i& boundingBox,
-  const int resolutionLevel) const
+  const Eigen::AlignedBox2i& boundingBox) const
 {
   pt::ptree jsonMetadata;
 
@@ -510,7 +500,6 @@ void OutputListenerNode::SaveMapMetadata(
   jsonMetadata.put("ImageSizeX", boundingBox.sizes().x());
   jsonMetadata.put("ImageSizeY", boundingBox.sizes().y());
   jsonMetadata.put("Resolution", resolution);
-  jsonMetadata.put("ResolutionLevel", resolutionLevel);
 
   // Save the grid map metadata as JSON
   pt::write_json(fileName, jsonMetadata);
