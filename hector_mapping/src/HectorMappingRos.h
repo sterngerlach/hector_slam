@@ -199,7 +199,6 @@ protected:
   ros::Publisher mOdometryPublisher;
   ros::Publisher mScanPointCloudPublisher;
 
-  ros::ServiceServer mSrvOccupancyGrids;
   ros::ServiceServer mResetMapService;
   ros::ServiceServer mRestartHectorService;
   ros::ServiceServer mToggleScanProcessingService;

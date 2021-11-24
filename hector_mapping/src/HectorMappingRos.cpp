@@ -268,8 +268,6 @@ HectorMappingRos::HectorMappingRos() :
   }
 
   // Initialize services
-  this->mSrvOccupancyGrids = this->mNode.advertiseService(
-    "get_occupancy_grids", &HectorMappingRos::occupancyGridsCallback, this);
   this->mResetMapService = this->mNode.advertiseService(
     "reset_map", &HectorMappingRos::resetMapCallback, this);
   this->mRestartHectorService = this->mNode.advertiseService(
@@ -955,22 +953,27 @@ void HectorMappingRos::publishMap(MapPublisherContainer& mapPublisher,
 
   // Only update map if it changed
   if (this->mLastGetMapUpdateIndex != gridMap.getUpdateIndex()) {
-    const int size = gridMap.getSizeX() * gridMap.getSizeY();
+    const int numOfValues = gridMap.getSizeX() * gridMap.getSizeY();
+    const float unknownProbability = gridMap.getObstacleThreshold();
 
-    std::vector<int8_t>& data = map.map.data;
+    std::vector<std::int8_t>& data = map.map.data;
 
     // std::vector contents are guaranteed to be contiguous,
     // use memset to set all to unknown to save time in loop
-    std::memset(&data[0], -1, sizeof(std::int8_t) * size);
+    // std::memset(&data[0], -1, sizeof(std::int8_t) * size);
 
     if (mapMutex != nullptr)
       mapMutex->lockMap();
 
-    for (int i = 0; i < size; ++i)
-      if (gridMap.isFree(i))
-        data[i] = 0;
-      else if (gridMap.isOccupied(i))
-        data[i] = 100;
+    for (int i = 0; i < numOfValues; ++i) {
+      const float probability = gridMap.getGridProbabilityMap(i);
+
+      if (probability == unknownProbability)
+        data[i] = -1;
+      else
+        data[i] = static_cast<std::int8_t>(
+          100.0f * std::min(1.0f, std::max(probability, 0.0f)));
+    }
 
     this->mLastGetMapUpdateIndex = gridMap.getUpdateIndex();
 
