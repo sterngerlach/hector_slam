@@ -36,6 +36,7 @@
 #include <laser_geometry/laser_geometry.h>
 #include <message_filters/subscriber.h>
 #include <nav_msgs/GetMap.h>
+#include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
 #include <std_msgs/String.h>
 #include <std_srvs/SetBool.h>
@@ -70,6 +71,52 @@ public:
   ros::ServiceServer dynamicMapServiceServer_;
 };
 
+struct OdometryData
+{
+  // Default constructor
+  OdometryData() : mIsFirstFrame(true),
+                   mIsAvailable(false),
+                   mLastScanMatchPose(0.0f, 0.0f, 0.0f),
+                   mPreviousPose(0.0f, 0.0f, 0.0f),
+                   mPose(0.0f, 0.0f, 0.0f),
+                   mPreviousTimestamp(0.0),
+                   mTimestamp(0.0),
+                   mTravelDistance(0.0f),
+                   mRotationAngle(0.0f),
+                   mElapsedTime(0.0f),
+                   mTravelDistanceThreshold(0.0f),
+                   mRotationAngleThreshold(0.0f),
+                   mElapsedTimeThreshold(0.0f) { }
+
+  // Flag to indicate whether the first scan is processed
+  bool mIsFirstFrame;
+  // Flag to indicate whether the first odometry data has arrived
+  bool mIsAvailable;
+  // Odometry pose when the last scan matching is performed
+  Eigen::Vector3f mLastScanMatchPose;
+  // Odometry pose of the previous odometry message
+  Eigen::Vector3f mPreviousPose;
+  // Odometry pose of the latest odometry message
+  Eigen::Vector3f mPose;
+  // Timestamp of the previous odometry message
+  ros::Time mPreviousTimestamp;
+  // Timestamp of the latest odometry pose
+  ros::Time mTimestamp;
+  // Travel distance since the last scan matching
+  float mTravelDistance;
+  // Rotation angle since the last scan matching
+  float mRotationAngle;
+  // Elapsed time since the last scan matching
+  float mElapsedTime;
+
+  // Threshold for the travel distance
+  float mTravelDistanceThreshold;
+  // Threshold for the rotation angle
+  float mRotationAngleThreshold;
+  // Threshold for the elapsed time
+  float mElapsedTimeThreshold;
+};
+
 class HectorMappingRos
 {
 public:
@@ -85,6 +132,7 @@ public:
     const hectorslam::DataContainer& dataContainer,
     Eigen::Matrix3f& covMatrix, const int mapIndex);
 
+  void odomCallback(const nav_msgs::Odometry& odometry);
   void scanCallback(const sensor_msgs::LaserScan& scan);
   void sysMsgCallback(const std_msgs::String& string);
 
@@ -137,6 +185,7 @@ protected:
 
   ros::NodeHandle mNode;
 
+  ros::Subscriber mOdomSubscriber;
   ros::Subscriber mScanSubscriber;
   ros::Subscriber mSysMsgSubscriber;
 
@@ -179,6 +228,8 @@ protected:
   bool mInitialPoseSet;
   Eigen::Vector3f mInitialPose;
 
+  OdometryData mOdometry;
+
   bool mPauseScanProcessing;
 
   //
@@ -193,6 +244,7 @@ protected:
   bool mPubMapToScanMatchTransform;
   std::string mMapToScanMatchTransformFrameName;
 
+  std::string mOdomTopic;
   std::string mScanTopic;
   std::string mSysMsgTopic;
   std::string mPoseUpdateTopic;
@@ -219,6 +271,7 @@ protected:
 
   bool mUseTfScanTransformation;
   bool mUseTfPoseStartEstimate;
+  bool mUseOdometryPose;
   bool mMapWithKnownPoses;
   bool mTimingOutput;
 

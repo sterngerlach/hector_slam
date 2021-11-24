@@ -42,6 +42,28 @@
 using namespace hectorslam;
 using namespace hector_mapping;
 
+// Compute new 2D pose by combining `pose` and `relativePose`
+Eigen::Vector3f CombinePose2D(
+  const Eigen::Vector3f& pose, const Eigen::Vector3f& relativePose)
+{
+  Eigen::Vector3f combinedPose;
+  combinedPose.head<2>() = pose.head<2>()
+    + Eigen::Rotation2Df(pose[2]) * relativePose.head<2>();
+  combinedPose[2] = pose[2] + relativePose[2];
+  return combinedPose;
+}
+
+// Compute relative 2D pose from `poseFrom` to `poseTo`
+Eigen::Vector3f ComputeRelativePose2D(
+  const Eigen::Vector3f& poseFrom, const Eigen::Vector3f& poseTo)
+{
+  Eigen::Vector3f relativePose;
+  relativePose.head<2>() = Eigen::Rotation2Df(-poseFrom[2])
+    * (poseTo.head<2>() - poseFrom.head<2>());
+  relativePose[2] = poseTo[2] - poseFrom[2];
+  return relativePose;
+}
+
 HectorMappingRos::HectorMappingRos() :
   mDebugInfoProvider(nullptr),
   mHectorDrawings(nullptr),
@@ -93,6 +115,8 @@ HectorMappingRos::HectorMappingRos() :
   privateNh.param("map_update_angle_thresh",
                   this->mMapUpdateAngleThreshold, 0.9);
 
+  privateNh.param("odom_topic",
+                  this->mOdomTopic, std::string("odom"));
   privateNh.param("scan_topic",
                   this->mScanTopic, std::string("scan"));
   privateNh.param("sys_msg_topic",
@@ -104,6 +128,8 @@ HectorMappingRos::HectorMappingRos() :
                   this->mUseTfScanTransformation, true);
   privateNh.param("use_tf_pose_start_estimate",
                   this->mUseTfPoseStartEstimate, false);
+  privateNh.param("use_odometry_pose",
+                  this->mUseOdometryPose, false);
   privateNh.param("map_with_known_poses",
                   this->mMapWithKnownPoses, false);
 
@@ -133,6 +159,16 @@ HectorMappingRos::HectorMappingRos() :
   this->mLaserZMinValue = static_cast<float>(tmp);
   privateNh.param("laser_z_max_value", tmp, 1.0);
   this->mLaserZMaxValue = static_cast<float>(tmp);
+
+  if (this->mUseOdometryPose) {
+    double value;
+    privateNh.param("odometry_travel_distance_threshold", value, 0.0);
+    this->mOdometry.mTravelDistanceThreshold = static_cast<float>(value);
+    privateNh.param("odometry_rotation_angle_threshold", value, 0.0);
+    this->mOdometry.mRotationAngleThreshold = static_cast<float>(value);
+    privateNh.param("odometry_elapsed_time_threshold", value, 0.0);
+    this->mOdometry.mElapsedTimeThreshold = static_cast<float>(value);
+  }
 
   if (this->mPubDrawings) {
     ROS_INFO("HectorMappingRos: publishing debug drawings");
@@ -245,6 +281,7 @@ HectorMappingRos::HectorMappingRos() :
   ROS_INFO("HectorMappingRos::mBaseFrame: %s", this->mBaseFrame.c_str());
   ROS_INFO("HectorMappingRos::mMapFrame: %s", this->mMapFrame.c_str());
   ROS_INFO("HectorMappingRos::mOdomFrame: %s", this->mOdomFrame.c_str());
+  ROS_INFO("HectorMappingRos::mOdomTopic: %s", this->mOdomTopic.c_str());
   ROS_INFO("HectorMappingRos::mScanTopic: %s", this->mScanTopic.c_str());
   ROS_INFO("HectorMappingRos::mUseTfScanTransformation: %s",
            this->mUseTfScanTransformation ? "true" : "false");
@@ -264,6 +301,11 @@ HectorMappingRos::HectorMappingRos() :
            this->mMapUpdateAngleThreshold);
   ROS_INFO("HectorMappingRos::mLaserZMinValue: %f", this->mLaserZMinValue);
   ROS_INFO("HectorMappingRos::mLaserZMaxValue: %f", this->mLaserZMaxValue);
+
+  if (this->mUseOdometryPose)
+    this->mOdomSubscriber = this->mNode.subscribe(
+      this->mOdomTopic, this->mScanSubscriberQueueSize,
+      &HectorMappingRos::odomCallback, this);
 
   this->mScanSubscriber = this->mNode.subscribe(
     this->mScanTopic, this->mScanSubscriberQueueSize,
@@ -517,6 +559,48 @@ Eigen::Vector3f HectorMappingRos::scanMatchCallback(
   return initialWorldPose;
 }
 
+void HectorMappingRos::odomCallback(const nav_msgs::Odometry& odometry)
+{
+  // Find the transform from `odometry.child_frame_id` to `mBaseFrame`
+  tf::StampedTransform childToBase;
+  if (this->mTf.waitForTransform(odometry.child_frame_id, this->mBaseFrame,
+                                 odometry.header.stamp, ros::Duration(0.5))) {
+    this->mTf.lookupTransform(odometry.child_frame_id, this->mBaseFrame,
+                              odometry.header.stamp, childToBase);
+  } else {
+    ROS_INFO("Failed to find a transform from %s to %s",
+             odometry.child_frame_id.c_str(), this->mBaseFrame.c_str());
+    return;
+  }
+
+  // Create tf::Transform from the odometry pose
+  tf::Pose odomToChild;
+  tf::poseMsgToTF(odometry.pose.pose, odomToChild);
+  // Compute the transform from `odometry.header.frame_id` to `mBaseFrame`
+  const tf::Pose odomToBase = odomToChild * childToBase;
+
+  Eigen::Vector3d eulerAngles;
+  tf::Matrix3x3(odomToBase.getRotation()).getRPY(
+    eulerAngles[0], eulerAngles[1], eulerAngles[2]);
+
+  const Eigen::Vector3d odometryPose {
+    odomToBase.getOrigin().x(), odomToBase.getOrigin().y(), eulerAngles[2] };
+
+  this->mOdometry.mPreviousPose = this->mOdometry.mPose;
+  this->mOdometry.mPreviousTimestamp = this->mOdometry.mTimestamp;
+  this->mOdometry.mPose = odometryPose.cast<float>();
+  this->mOdometry.mTimestamp = odometry.header.stamp;
+  this->mOdometry.mIsAvailable = true;
+
+  const Eigen::Vector3f poseDifference =
+    ComputeRelativePose2D(this->mOdometry.mPreviousPose, this->mOdometry.mPose);
+  const ros::Duration timeDifference =
+    this->mOdometry.mTimestamp - this->mOdometry.mPreviousTimestamp;
+  this->mOdometry.mTravelDistance += poseDifference.head<2>().norm();
+  this->mOdometry.mRotationAngle += std::abs(poseDifference[2]);
+  this->mOdometry.mElapsedTime += timeDifference.toSec();
+}
+
 void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
 {
   if (this->mPauseScanProcessing)
@@ -526,6 +610,41 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
   this->mMetricsMsg = hector_mapping::HectorMappingMetrics();
   // Measure the time for processing the current frame (scan)
   Timer outerTimer;
+
+  // Refine the initial pose estimate using odometry data (if available)
+  Eigen::Vector3f relOdomPose = Eigen::Vector3f::Zero();
+
+  if (this->mUseOdometryPose && this->mOdometry.mIsAvailable) {
+    const bool distanceThreshold = this->mOdometry.mTravelDistance
+      > this->mOdometry.mTravelDistanceThreshold;
+    const bool angleThreshold = this->mOdometry.mRotationAngle
+      > this->mOdometry.mRotationAngleThreshold;
+    const bool elapsedTimeThreshold = this->mOdometry.mElapsedTime
+      > this->mOdometry.mElapsedTimeThreshold;
+    const bool exceedsThreshold =
+      distanceThreshold || angleThreshold || elapsedTimeThreshold;
+
+    // Perform scan matching only when the robot travelled a certain amount of
+    // distance, or rotated a certain amount of angle, or a certain amount of
+    // time elapsed since the last scan matching
+    if (!this->mOdometry.mIsFirstFrame && !exceedsThreshold)
+      return;
+
+    this->mOdometry.mTravelDistance = 0.0f;
+    this->mOdometry.mRotationAngle = 0.0f;
+    this->mOdometry.mElapsedTime = 0.0f;
+
+    if (this->mOdometry.mIsFirstFrame) {
+      this->mOdometry.mLastScanMatchPose = this->mOdometry.mPose;
+      this->mOdometry.mIsFirstFrame = false;
+    }
+
+    // Compute the relative pose from the last scan matching
+    relOdomPose = ComputeRelativePose2D(
+      this->mOdometry.mLastScanMatchPose, this->mOdometry.mPose);
+    // Set the odometry pose at the last scan matching
+    this->mOdometry.mLastScanMatchPose = this->mOdometry.mPose;
+  }
 
   if (++this->mNumOfProcessedScans % 10 == 0)
     ROS_INFO("Processing the frame: %d", this->mNumOfProcessedScans);
@@ -593,16 +712,16 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
     } else if (this->mUseTfPoseStartEstimate) {
       // Initial pose estimate comes from the tf tree
       try {
-        tf::StampedTransform stamped_pose;
+        tf::StampedTransform stampedPose;
 
         this->mTf.waitForTransform(this->mMapFrame, this->mBaseFrame,
           scan.header.stamp, ros::Duration(0.5));
         this->mTf.lookupTransform(this->mMapFrame, this->mBaseFrame,
-          scan.header.stamp, stamped_pose);
+          scan.header.stamp, stampedPose);
 
-        startEstimate[0] = stamped_pose.getOrigin().getX();
-        startEstimate[1] = stamped_pose.getOrigin().getY();
-        startEstimate[2] = tf::getYaw(stamped_pose.getRotation());
+        startEstimate[0] = stampedPose.getOrigin().getX();
+        startEstimate[1] = stampedPose.getOrigin().getY();
+        startEstimate[2] = tf::getYaw(stampedPose.getRotation());
       } catch(tf::TransformException e) {
         ROS_ERROR("Transform from %s to %s failed\n",
                   this->mMapFrame.c_str(), this->mBaseFrame.c_str());
@@ -612,6 +731,9 @@ void HectorMappingRos::scanCallback(const sensor_msgs::LaserScan& scan)
       // If none of the above, initial pose is simply the last estimated pose
       startEstimate = this->mSlamProcessor->getLastScanMatchPose();
     }
+
+    // Combine the odometry pose
+    startEstimate = CombinePose2D(startEstimate, relOdomPose);
 
     // If "mMapWithKnownPoses" is enabled, we assume that startEstimate
     // is precise and doesn't need to be refined
